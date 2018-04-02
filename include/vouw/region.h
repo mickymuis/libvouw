@@ -8,6 +8,10 @@
 #ifndef REGION_H
 #define REGION_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <vouw/matrix.h>
 #include <vouw/pattern.h>
 #include "list.h"
@@ -34,6 +38,10 @@ region_list_free( region_t* );
 
 void 
 region_list_unmask( region_t* );
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

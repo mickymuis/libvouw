@@ -8,6 +8,10 @@
 #ifndef VOUW_MATRIX_H
 #define VOUW_MATRIX_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -71,5 +75,9 @@ vouw_matrix_isFlagged( const vouw_matrix_t* m, vouw_coord_t c );
 
 void
 vouw_matrix_unflagAll( vouw_matrix_t* m );
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

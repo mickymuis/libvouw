@@ -4,6 +4,10 @@
  * Licensed under GPL.
  */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdio.h>
 #include "list_sort.h"
 #include <vouw/list.h>
@@ -151,3 +155,6 @@ void list_sort(void *priv, struct list_head *head,
     merge_and_restore_back_links(priv, cmp, head, part[max_lev], list);
 }
 
+#ifdef __cplusplus
+}
+#endif

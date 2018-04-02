@@ -5,6 +5,10 @@
  * Leiden Institute for Advanced Computer Science
  */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <vouw/pattern.h>
 #include "list_sort.h"
 #include <stdlib.h>
@@ -285,3 +289,7 @@ void
 pattern_list_sortBySizeDesc( pattern_t* head ) {
     list_sort( NULL, &(head->list), pattern_cmp_size );
 }
+
+#ifdef __cplusplus
+}
+#endif

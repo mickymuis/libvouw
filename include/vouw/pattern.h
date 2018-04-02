@@ -8,6 +8,10 @@
 #ifndef PATTERN_H
 #define PATTERN_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "list.h"
 #include <vouw/matrix.h>
 #include <stdbool.h>
@@ -84,5 +88,9 @@ pattern_list_sortByUsageDesc( pattern_t* head );
 
 void
 pattern_list_sortBySizeDesc( pattern_t* head );
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -5,6 +5,10 @@
  * Leiden Institute for Advanced Computer Science
  */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <vouw/region.h>
 #include <stdlib.h>
 
@@ -54,3 +58,7 @@ region_list_unmask( region_t* r ) {
         entry->masked =false;
     }
 }
+
+#ifdef __cplusplus
+}
+#endif

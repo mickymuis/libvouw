@@ -7,6 +7,10 @@
 
 #include <vouw/vouw.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
@@ -531,3 +535,7 @@ vouw_decode( vouw_t* v ) {
     }
     return m;
 }
+
+#ifdef __cplusplus
+}
+#endif

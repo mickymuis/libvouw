@@ -8,6 +8,10 @@
 #ifndef VOUW_H
 #define VOUW_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 //#define VOUW_DEBUG_PRINT
 
 #include "matrix.h"
@@ -48,5 +52,9 @@ vouw_encodeStep( vouw_t* v );
 
 vouw_matrix_t*
 vouw_decode( vouw_t* v );
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

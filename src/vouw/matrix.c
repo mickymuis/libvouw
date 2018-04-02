@@ -5,6 +5,10 @@
  * (C) 2018, Leiden Institute for Advanced Computer Science
  */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <vouw/matrix.h>
 
 #include <stdlib.h>
@@ -131,3 +135,7 @@ vouw_matrix_unflagAll( vouw_matrix_t* m ) {
         }
     }
 }
+
+#ifdef __cplusplus
+}
+#endif

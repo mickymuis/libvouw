@@ -4,9 +4,9 @@
 #include <QMainWindow>
 #include <QTextEdit>
 #include <QFile>
-#include "qvouw.h"
 
 class VouwWidget;
+class VouwItemModel;
 
 class MainWindow : public QMainWindow
 {
@@ -22,10 +22,13 @@ public slots:
 protected:
     void timerEvent(QTimerEvent *event);
 
+private slots:
+    void vouwItemDoubleClicked(const QModelIndex&);
+
 private:
 
     VouwWidget* vouwWidget;
-    QVouw* vouw;
+    VouwItemModel* vouwModel;
     QTextEdit* console;
     QFile console_stderr;
     QFile console_stdout;

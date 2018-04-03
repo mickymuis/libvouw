@@ -19,25 +19,25 @@ out GS_OUT {
 void main() {
     vec4 pos = gl_in[0].gl_Position;
 
-    vec4 v =pos - vec4( 0.01, 0.01, 0, 0 );
+    vec4 v =pos - vec4( 0.50, 0.50, 0, 0 );
     gl_Position = mat_mvp * v;
     gs_out.color =gs_in[0].color;
 //    out_color =in_color[0];
     EmitVertex();
     
-    v =pos + vec4( -0.01, 0.01, 0, 0 );
+    v =pos + vec4( -0.50, 0.50, 0, 0 );
     gl_Position = mat_mvp * v;
     gs_out.color =gs_in[0].color;
 //    out_color =in_color[0];
     EmitVertex();
     
-    v =pos + vec4( 0.01, -0.01, 0, 0 );
+    v =pos + vec4( 0.50, -0.50, 0, 0 );
     gl_Position = mat_mvp * v;
     gs_out.color =gs_in[0].color;
 //    out_color =in_color[0];
     EmitVertex();
     
-    v =pos + vec4( 0.01, 0.01, 0, 0 );
+    v =pos + vec4( 0.50, 0.50, 0, 0 );
     gl_Position = mat_mvp * v;
     gs_out.color =gs_in[0].color;
 //    out_color =in_color[0];

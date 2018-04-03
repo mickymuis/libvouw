@@ -12,7 +12,7 @@
 extern "C" {
 #endif
 
-//#define VOUW_DEBUG_PRINT
+#define VOUW_DEBUG_PRINT
 
 #include "matrix.h"
 #include "pattern.h"

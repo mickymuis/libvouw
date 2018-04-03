@@ -1,6 +1,9 @@
 #ifndef VOUWWIDGET_H
 #define VOUWWIDGET_H
 
+#include <vouw/vouw.h>
+#include <vouw/matrix.h>
+
 #include <QOpenGLWidget>
 #include <QOpenGLFunctions>
 #include <QOpenGLBuffer>
@@ -17,10 +20,13 @@ public:
     explicit VouwWidget(QWidget *parent = 0);
     ~VouwWidget();
 
+    void showMatrix( vouw_matrix_t* mat );
+
     QSize minimumSizeHint() const override;
     QSize sizeHint() const override;
-    void rotateBy(int xAngle, int yAngle, int zAngle);
-    void setClearColor(const QColor &color);
+    void rotateBy( int xAngle, int yAngle, int zAngle );
+    void panBy( float x, float y );
+    void setClearColor( const QColor &color );
 
 signals:
     void clicked();
@@ -36,7 +42,9 @@ protected:
 private:
     void makeObject();
 
-    int zoom;
+    float aspectRatio;
+    float zoom;
+    float xPan, yPan;
     QColor clearColor;
     QPoint lastPos;
     int xRot;

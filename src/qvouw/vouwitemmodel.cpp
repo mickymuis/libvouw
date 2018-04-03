@@ -1,14 +1,30 @@
-#include "qvouw.h"
+#include "vouwitemmodel.h"
 #include <iostream>
 
+/* VouwItem implementation */
+
 VouwItem::VouwItem( Role r, VouwItem* parent ) 
-    : matrix(0), handle(0), itemRole( r ), parentItem( parent ) {
+    :itemRole( r ), parentItem( parent ) {
     if( parent )
         parent->appendChild( this );
 }
 
 VouwItem::~VouwItem() {
+    if( obj && itemRole == ROOT )
+        delete obj;
     qDeleteAll( childList );
+}
+
+void 
+VouwItem::setObject( Vouw* o ) {
+    obj =o;
+}
+
+Vouw* 
+VouwItem::object() const {
+    if( !obj )
+        return parentItem->object();
+    return obj;
 }
 
 void 
@@ -30,11 +46,11 @@ int VouwItem::columnCount() const {
 
 QVariant VouwItem::data(int column) const {
     switch( itemRole ) {
-        case ROOT:
+        case INDEX:
             return QVariant();
             break;
-        case PARENT:
-            return name;
+        case ROOT:
+            return obj ? obj->name : QObject::tr( "(object)" );
             break;
         case MATRIX:
             return QString( QObject::tr( "Input matrix" ) );
@@ -67,20 +83,30 @@ VouwItem::Role VouwItem::role() const {
     return itemRole;
 }
 
+/* VouwItemModel implementation */
 
-QVouw::QVouw( QObject* parent ) : QAbstractItemModel( parent ) {
+VouwItemModel::VouwItemModel( QObject* parent ) : QAbstractItemModel( parent ) {
 
-    rootItem =new VouwItem( VouwItem::ROOT );
+    rootItem =new VouwItem( VouwItem::INDEX );
     addEmpty( "Test" );
     addEmpty( "Test2" );
 }
 
-QVouw::~QVouw() {
+VouwItemModel::~VouwItemModel() {
     delete rootItem;
 }
 
+VouwItem* 
+VouwItemModel::fromIndex( const QModelIndex& index ) const {
+    if( index.isValid() /*&& index.parent().isValid()*/ ) {
+        VouwItem* item =static_cast<VouwItem*>( index.internalPointer() );
+        return item;
+    }
+    return 0;
+}
+
 QModelIndex 
-QVouw::index(int row, int column, const QModelIndex &parent) const {
+VouwItemModel::index(int row, int column, const QModelIndex &parent) const {
     if (!hasIndex(row, column, parent))
         return QModelIndex();
 
@@ -99,7 +125,7 @@ QVouw::index(int row, int column, const QModelIndex &parent) const {
 }
 
 QModelIndex 
-QVouw::parent(const QModelIndex &index) const {
+VouwItemModel::parent(const QModelIndex &index) const {
     if (!index.isValid())
         return QModelIndex();
 
@@ -113,7 +139,7 @@ QVouw::parent(const QModelIndex &index) const {
 }
 
 int 
-QVouw::rowCount(const QModelIndex &parent) const {
+VouwItemModel::rowCount(const QModelIndex &parent) const {
     VouwItem *parentItem;
     if (parent.column() > 0)
         return 0;
@@ -127,7 +153,7 @@ QVouw::rowCount(const QModelIndex &parent) const {
 }
 
 int 
-QVouw::columnCount(const QModelIndex &parent) const {
+VouwItemModel::columnCount(const QModelIndex &parent) const {
     if (parent.isValid())
         return static_cast<VouwItem*>(parent.internalPointer())->columnCount();
     else
@@ -135,7 +161,7 @@ QVouw::columnCount(const QModelIndex &parent) const {
 }
 
 QVariant 
-QVouw::data(const QModelIndex &index, int role) const {
+VouwItemModel::data(const QModelIndex &index, int role) const {
     if (!index.isValid())
         return QVariant();
 
@@ -148,7 +174,7 @@ QVouw::data(const QModelIndex &index, int role) const {
 }
 
 Qt::ItemFlags 
-QVouw::flags(const QModelIndex &index) const
+VouwItemModel::flags(const QModelIndex &index) const
 {
     if (!index.isValid())
         return 0;
@@ -157,7 +183,7 @@ QVouw::flags(const QModelIndex &index) const
 }
 
 QVariant 
-QVouw::headerData(int section, Qt::Orientation orientation,
+VouwItemModel::headerData(int section, Qt::Orientation orientation,
                                int role) const
 {
     if (orientation == Qt::Horizontal && role == Qt::DisplayRole)
@@ -167,7 +193,7 @@ QVouw::headerData(int section, Qt::Orientation orientation,
 }
 
 bool 
-QVouw::removeRows(int row, int count, const QModelIndex &parent) {
+VouwItemModel::removeRows(int row, int count, const QModelIndex &parent) {
    // if( parent.isValid() )
    //     return false;
 
@@ -182,16 +208,11 @@ QVouw::removeRows(int row, int count, const QModelIndex &parent) {
 }
 
 VouwItem* 
-QVouw::addFromImage( const QString& filename, int levels ) {
-
-}
-
-VouwItem* 
-QVouw::addEmpty( const QString& name ) {
+VouwItemModel::add( Vouw* v ) {
     beginInsertRows( QModelIndex(), objList.count(), objList.count() );
 
-    VouwItem *parent =new VouwItem( VouwItem::PARENT, rootItem );
-    parent->name =name;
+    VouwItem *parent =new VouwItem( VouwItem::ROOT, rootItem );
+    parent->setObject( v );
     new VouwItem( VouwItem::MATRIX, parent );
     new VouwItem( VouwItem::ENCODED, parent );
     new VouwItem( VouwItem::MODEL, parent );
@@ -199,4 +220,11 @@ QVouw::addEmpty( const QString& name ) {
     objList.append( parent );
 
     endInsertRows();
+
+    return parent;
+}
+
+VouwItem* 
+VouwItemModel::addEmpty( const QString& name ) {
+    return add( new Vouw(name) );
 }

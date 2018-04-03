@@ -42,10 +42,11 @@ if( Qt5Widgets_FOUND )
 # Tell CMake to create the helloworld executable
     add_executable( qvouw 
         src/qvouw/main.cpp
-        src/qvouw/qvouw.cpp
+        src/qvouw/vouw.cpp
         src/qvouw/qvouw.qrc
         src/qvouw/vouwwidget.cpp
-        src/qvouw/mainwindow.cpp)
+        src/qvouw/mainwindow.cpp
+        src/qvouw/vouwitemmodel.cpp)
 
 # Use the Widgets module from Qt 5.
     target_link_libraries(qvouw Qt5::Widgets)

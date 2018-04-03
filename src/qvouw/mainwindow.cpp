@@ -5,6 +5,7 @@
 
 #include "vouwwidget.h"
 #include "mainwindow.h"
+#include "vouwitemmodel.h"
 
 #include <stdio.h>
 #include <iostream>
@@ -12,7 +13,7 @@
 MainWindow::MainWindow() : QMainWindow()
 {
   //  QGridLayout *mainLayout = new QGridLayout;
-    vouw = new QVouw( this );
+    vouwModel = new VouwItemModel( this );
 
     /* Prepare main window actions */
     QAction* actImportImage = new QAction(tr("&Import Image"), this);
@@ -45,7 +46,8 @@ MainWindow::MainWindow() : QMainWindow()
 
     QTreeView* view = new QTreeView( modelWindow );
     modelWindow->setWidget( view );
-    view->setModel( vouw );
+    view->setModel( vouwModel );
+    connect( view, &QAbstractItemView::doubleClicked, this, &MainWindow::vouwItemDoubleClicked );
 
     /* Console */
     QDockWidget* consoleWindow = new QDockWidget(tr("Console"), this);
@@ -99,11 +101,15 @@ MainWindow::importImage() {
     if (ok && !item.isEmpty()) {
         int levels = item.toInt();
 
-        if( !vouw->addFromImage( fileName, levels ) ) {
+        std::cerr << levels << std::endl;
+
+        Vouw* v= Vouw::createFromImage( fileName, levels );
+        if( !v ) {
             QMessageBox::critical(this, tr("Error"),
             tr("Could not load selected image. Please see log for details."),
             QMessageBox::Ok);
         }
+        vouwModel->add( v );
     }
 }
 
@@ -121,4 +127,19 @@ MainWindow::timerEvent(QTimerEvent *event) {
     console->setTextColor( Qt::darkBlue );
     while( console_stdout.bytesAvailable() )
         console->append( console_stdout.readLine().trimmed() );
+}
+
+void 
+MainWindow::vouwItemDoubleClicked( const QModelIndex& index ) {
+    VouwItem* item =vouwModel->fromIndex( index );
+    if( !item ) return;
+
+    Vouw* v =item->object();
+    if( !v ) return;
+
+    std::cout << "Plok!" << std::endl;
+
+    vouwWidget->showMatrix( v->matrix );
+
+//    std::cout << item->data(0).toString().unicode() << " role: " << item->role() << std::endl;
 }

@@ -5,15 +5,14 @@
 #include <QList>
 #include <QAbstractItemModel>
 
-#include <vouw/vouw.h>
-#include <vouw/matrix.h>
+#include "vouw.h"
 
 class VouwItem;
 class VouwItem {
 public:
     enum Role {
+        INDEX,
         ROOT,
-        PARENT,
         MATRIX,
         ENCODED,
         MODEL,
@@ -22,9 +21,8 @@ public:
     explicit VouwItem( Role, VouwItem* parent =0 );
     ~VouwItem();
 
-    vouw_matrix_t* matrix;
-    vouw_t* handle;
-    QString name;
+    void setObject( Vouw* );
+    Vouw* object() const;
 
     void appendChild(VouwItem *child);
 
@@ -40,18 +38,21 @@ private:
     Role itemRole;
     QList<VouwItem*> childList;
     VouwItem *parentItem;
+    Vouw* obj;
 
 };
 
-class QVouw : public QAbstractItemModel {
+class VouwItemModel : public QAbstractItemModel {
     Q_OBJECT
 
 public:
-    QVouw( QObject* parent =0 );
-    ~QVouw();
+    VouwItemModel( QObject* parent =0 );
+    ~VouwItemModel();
 
-    VouwItem* addFromImage( const QString& filename, int levels );
+    VouwItem* add( Vouw* );
     VouwItem* addEmpty( const QString& name );
+
+    VouwItem* fromIndex( const QModelIndex& index ) const;
 
     QModelIndex index(int row, int column, const QModelIndex &parent = QModelIndex()) const override;
     QModelIndex parent(const QModelIndex &index) const override;

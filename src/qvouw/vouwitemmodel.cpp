@@ -4,15 +4,15 @@
 /* VouwItem implementation */
 
 VouwItem::VouwItem( Role r, VouwItem* parent ) 
-    :itemRole( r ), parentItem( parent ) {
+    :itemRole( r ), parentItem( parent ), obj( 0 ) {
     if( parent )
         parent->appendChild( this );
 }
 
 VouwItem::~VouwItem() {
+    qDeleteAll( childList );
     if( obj && itemRole == ROOT )
         delete obj;
-    qDeleteAll( childList );
 }
 
 void 
@@ -23,7 +23,10 @@ VouwItem::setObject( Vouw* o ) {
 Vouw* 
 VouwItem::object() const {
     if( !obj )
-        return parentItem->object();
+        if( !parentItem )
+            return 0;
+        else
+            return parentItem->object();
     return obj;
 }
 
@@ -88,8 +91,8 @@ VouwItem::Role VouwItem::role() const {
 VouwItemModel::VouwItemModel( QObject* parent ) : QAbstractItemModel( parent ) {
 
     rootItem =new VouwItem( VouwItem::INDEX );
-    addEmpty( "Test" );
-    addEmpty( "Test2" );
+   /* addEmpty( "Test" );
+    addEmpty( "Test2" );*/
 }
 
 VouwItemModel::~VouwItemModel() {
@@ -209,7 +212,7 @@ VouwItemModel::removeRows(int row, int count, const QModelIndex &parent) {
 
 VouwItem* 
 VouwItemModel::add( Vouw* v ) {
-    beginInsertRows( QModelIndex(), objList.count(), objList.count() );
+    beginInsertRows( QModelIndex(), rootItem->childCount(), rootItem->childCount() );
 
     VouwItem *parent =new VouwItem( VouwItem::ROOT, rootItem );
     parent->setObject( v );
@@ -217,7 +220,7 @@ VouwItemModel::add( Vouw* v ) {
     new VouwItem( VouwItem::ENCODED, parent );
     new VouwItem( VouwItem::MODEL, parent );
 
-    objList.append( parent );
+//    objList.append( parent );
 
     endInsertRows();
 

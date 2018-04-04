@@ -41,9 +41,10 @@ vouw_matrix_create( int width, int height, int base ) {
 
 void
 vouw_matrix_free( vouw_matrix_t* m ) {
-    for( int i =0; i < m->height; i++ ) {
+    /*for( int i =0; i < m->height; i++ ) {
         free( m->rows[i].cols );
-    }
+    }*/
+    free( m->buffer );
     free( m->rows );
     free( m );
 }

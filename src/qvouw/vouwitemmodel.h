@@ -69,7 +69,7 @@ public:
 
 private:
     VouwItem* rootItem;
-    QList<VouwItem*> objList;
+//    QList<VouwItem*> objList;
 
 };
 

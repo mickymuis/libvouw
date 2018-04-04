@@ -14,6 +14,8 @@ VouwWidget::VouwWidget(QWidget *parent)
       zoom(10),
       program(0)
 {
+    QPalette p;
+    setClearColor( p.dark().color() );
 }
 
 VouwWidget::~VouwWidget()
@@ -58,13 +60,16 @@ void VouwWidget::initializeGL()
 {
     initializeOpenGLFunctions();
 
-    makeObject();
-
     glEnable(GL_DEPTH_TEST);
 //    glEnable(GL_CULL_FACE);
+//
 
 #define PROGRAM_VERTEX_ATTRIBUTE 0
 #define PROGRAM_COLOR_ATTRIBUTE 1
+
+// create Vertex Array Object (VAO)
+    vao.create();
+    vao.bind();
 
     QOpenGLShader *vshader = new QOpenGLShader(QOpenGLShader::Vertex, this);
     vshader->compileSourceFile(":/shaders/vertex.glsl");
@@ -85,9 +90,10 @@ void VouwWidget::initializeGL()
 
     program->bind();
 
-// create Vertex Array Object (VAO)
-    vao.create();
-    vao.bind();
+//    makeObject();
+    vbo.create();
+    vbo.bind();
+    vbo.setUsagePattern( QOpenGLBuffer::DynamicDraw );
 }
 
 void VouwWidget::paintGL()
@@ -112,10 +118,11 @@ void VouwWidget::paintGL()
     program->setAttributeBuffer(PROGRAM_VERTEX_ATTRIBUTE, GL_FLOAT, 0, 3, 6 * sizeof(GLfloat));
     program->setAttributeBuffer(PROGRAM_COLOR_ATTRIBUTE, GL_FLOAT, 3 * sizeof(GLfloat), 3, 6 * sizeof(GLfloat));
 
-//    for (int i = 0; i < 6; ++i) {
-//        glDrawArrays(GL_POINTS, i*4, 4);
-//    }
-    glDrawArrays( GL_POINTS, 0, vbo.size() );
+    for (int i = 0; i < vbo.size()/6; ++i) {
+        glDrawArrays(GL_POINTS, i, 1);
+    }
+//    if( vbo.isCreated() )
+//        glDrawArrays( GL_POINTS, 0, vbo.size()/6 );
 }
 void VouwWidget::resizeGL(int width, int height)
 {
@@ -135,9 +142,11 @@ void VouwWidget::mouseMoveEvent(QMouseEvent *event)
     int dx = event->x() - lastPos.x();
     int dy = event->y() - lastPos.y();
 
+    float precision = zoom / (float)height();
+
     if (event->buttons() & Qt::LeftButton) {
         //rotateBy(8 * dy, 8 * dx, 0);
-        panBy( (float)dx * .001f, (float)dy * .001f );
+        panBy( (float)dx * precision, (float)dy * precision );
     } else if (event->buttons() & Qt::RightButton) {
         rotateBy(8 * dy, 8 * dx, 0);
         //rotateBy(8 * dy, 0, 8 * dx);
@@ -156,20 +165,23 @@ void VouwWidget::wheelEvent(QWheelEvent *event) {
     event->accept();
 }
 
-void VouwWidget::mouseReleaseEvent(QMouseEvent * /* event */)
+void 
+VouwWidget::mouseReleaseEvent(QMouseEvent * /* event */)
 {
     emit clicked();
 }
 
-void VouwWidget::showMatrix( vouw_matrix_t* mat ) {
+void 
+VouwWidget::showMatrix( vouw_matrix_t* mat ) {
     if( vbo.isCreated() ) {
-        vbo.release();
-        //vbo.destroy();
+   //     vbo.release();
+       // vbo.destroy();
     }
 
     int height = mat->height;
     float yCenter = height * .5f;
     float xCenter = mat->width * .5f;
+    zoom = (float)qMax( height, mat->width ) / 2.f;
 
     QVector<GLfloat> vertData;
     for (int i = 0; i < height; ++i) {    
@@ -181,15 +193,70 @@ void VouwWidget::showMatrix( vouw_matrix_t* mat ) {
         vertData.append((float)i - yCenter);
         vertData.append(0.0f);
 
+        float value =(float)row->cols[j] / (float)mat->base;
+
         // color
-        vertData.append( (float)row->cols[j] * 8.0f );
-        vertData.append( (float)row->cols[j] * 8.0f );
-        vertData.append( (float)row->cols[j] * 8.0f );
+//        vertData.append( value < 0.25 ? 0.f : (value < 0.75 ? (value - 0.25f) * 2.f : 1.f ) ); // RED
+        vertData.append( value < 0.5 ? value * 2.f : 1.f ); // RED
+        vertData.append( value > 0.33 ? (value - 0.33f) * 1.5f : 0.f ); // GREEN
+        //vertData.append( value > 0.5 ? 0.f : 1 - value * 2.f ); // BLUE
+        vertData.append( value > 0.5 ? 0.f : ( value < 0.25 ? 0.5 + value * 2.f : 1 - (value-0.25) * 4.f ) ); // BLUE
         }
     }
 
 
-    vbo.create();
+    //vbo.create();
+    vbo.bind();
+    vbo.allocate(vertData.constData(), vertData.count() * sizeof(GLfloat));
+    update();
+}
+
+QColor
+VouwWidget::colorLabel( int label ) {
+    QColor c;
+    c.setHsv( (240 + (label * 49)) % 360, 200, 255 - (label >> 3) * 40 );
+    return c;
+}
+
+void 
+VouwWidget::showEncoded( vouw_t* v ) {
+    if( vbo.isCreated() ) {
+      //  vbo.release();
+      //  vbo.destroy();
+    }
+
+    QVector<GLfloat> vertData;
+    int height = v->mat->height;
+    float yCenter = height * .5f;
+    float xCenter = v->mat->width * .5f;
+    zoom = (float)qMax( height, v->mat->width ) / 2.f;
+
+    struct list_head* pos;
+    list_for_each( pos, &(v->encoded->list) ) {
+        region_t* region = list_entry( pos, region_t, list );
+
+        //region_apply( region, m );
+        pattern_t* p =region->pattern;
+        for( int i =0; i < p->size; i++ ) {
+            // For each offset, compute its location on the automaton
+            vouw_coord_t c = pattern_offset_abs( region->pivot, p->offsets[i] );
+            // Set the buffer's value at c
+            // vouw_matrix_setValue( m, c, (p->offsets[i].value + region->variant) % m->base );
+            // float value = (float)((p->offsets[i].value + region->variant) % m->base) / (float)v->mat->base; 
+            vertData.append((float)c.col - xCenter);
+            vertData.append((float)c.row - yCenter);
+            vertData.append(0.0f);
+
+            QColor color = colorLabel( p->label );
+
+            vertData.append( color.redF() );
+            vertData.append( color.greenF() );
+            vertData.append( color.blueF() );
+        }
+
+    }
+
+   // vbo.create();
     vbo.bind();
     vbo.allocate(vertData.constData(), vertData.count() * sizeof(GLfloat));
     update();
@@ -197,32 +264,24 @@ void VouwWidget::showMatrix( vouw_matrix_t* mat ) {
 
 void VouwWidget::makeObject()
 {
-   /* static const int coords[4][3] = {
-        { +1, 1, 1 }, { -1, -1, 1 }, { -1, +1, 1 }, { +1, +1, -1 }
-    };*/
-
-static const int coords[6][4][3] = {
-        { { +1, -1, -1 }, { -1, -1, -1 }, { -1, +1, -1 }, { +1, +1, -1 } },
-        { { +1, +1, -1 }, { -1, +1, -1 }, { -1, +1, +1 }, { +1, +1, +1 } },
-        { { +1, -1, +1 }, { +1, -1, -1 }, { +1, +1, -1 }, { +1, +1, +1 } },
-        { { -1, -1, -1 }, { -1, -1, +1 }, { -1, +1, +1 }, { -1, +1, -1 } },
-        { { +1, -1, +1 }, { -1, -1, +1 }, { -1, -1, -1 }, { +1, -1, -1 } },
-        { { -1, -1, +1 }, { +1, -1, +1 }, { +1, +1, +1 }, { -1, +1, +1 } }
-    };
 
     QVector<GLfloat> vertData;
-    for (int i = 0; i < 6; ++i) {    
-        for (int j = 0; j < 4; ++j) {
         // vertex position
-        vertData.append(0.2 * coords[i][j][0]);
-        vertData.append(0.2 * coords[i][j][1]);
-        vertData.append(0.2 * coords[i][j][2]);
+        vertData.append(0);
+        vertData.append(0);
+        vertData.append(0);
         // color
-        vertData.append( (float)i / 3.0f );
-        vertData.append( (float)(3-i) / 3.0f );
-        vertData.append( (float)i / 3.0f );
-        }
-    }
+        vertData.append( 1 );
+        vertData.append( 1 );
+        vertData.append( 1 );
+        
+        vertData.append(1);
+        vertData.append(1);
+        vertData.append(0);
+        // color
+        vertData.append( 0 );
+        vertData.append( 1 );
+        vertData.append( 1 );
 
     vbo.create();
     vbo.bind();

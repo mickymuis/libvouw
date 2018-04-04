@@ -31,6 +31,7 @@ set(CMAKE_AUTORCC ON)
 find_package(Qt5Widgets)
 
 if( Qt5Widgets_FOUND )
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
 # c++11
     include(CheckCXXCompilerFlag)
     CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)

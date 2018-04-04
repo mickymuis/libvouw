@@ -21,6 +21,7 @@ public:
     ~VouwWidget();
 
     void showMatrix( vouw_matrix_t* mat );
+    void showEncoded( vouw_t* v );
 
     QSize minimumSizeHint() const override;
     QSize sizeHint() const override;
@@ -39,8 +40,10 @@ protected:
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
     void wheelEvent(QWheelEvent *event) override;
+
 private:
     void makeObject();
+    QColor colorLabel( int label );
 
     float aspectRatio;
     float zoom;

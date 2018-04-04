@@ -232,7 +232,7 @@ pattern_list_free( pattern_t* list ) {
 void 
 pattern_list_setLabels( pattern_t* list ) {
     struct list_head* pos;
-    char c = 'A';
+    char c = 0;
     list_for_each( pos, &(list->list) ) {
         pattern_t* pattern = list_entry( pos, pattern_t, list );
         pattern->label =c;

@@ -9,8 +9,9 @@
 
 #include <stdio.h>
 #include <iostream>
+#include <iomanip>
 
-MainWindow::MainWindow() : QMainWindow()
+MainWindow::MainWindow() : QMainWindow(), currentItem( 0 )
 {
   //  QGridLayout *mainLayout = new QGridLayout;
     vouwModel = new VouwItemModel( this );
@@ -109,7 +110,9 @@ MainWindow::importImage() {
             tr("Could not load selected image. Please see log for details."),
             QMessageBox::Ok);
         }
-        vouwModel->add( v );
+        VouwItem* item = vouwModel->add( v );
+        if( !currentItem )
+            setCurrentItem( item );
     }
 }
 
@@ -118,8 +121,8 @@ MainWindow::quit() {
     QApplication::quit();
 }
 
-void
-MainWindow::timerEvent(QTimerEvent *event) {
+void 
+MainWindow::updateConsole() {
     console->setTextColor( Qt::darkCyan );
     while( console_stderr.bytesAvailable() )
         console->append( console_stderr.readLine().trimmed() );
@@ -129,17 +132,45 @@ MainWindow::timerEvent(QTimerEvent *event) {
         console->append( console_stdout.readLine().trimmed() );
 }
 
+void
+MainWindow::timerEvent(QTimerEvent *event) {
+    updateConsole();
+}
+
+void
+MainWindow::encode( Vouw* v ) {
+    while( v->encodeStep() ){
+        updateConsole();
+        vouwWidget->showEncoded( v->handle );
+        qApp->processEvents();
+    }
+
+    std::cout << "Compression ratio: " << std::setprecision(4) << v->ratio() << "%" << std::endl;
+}
+
+void 
+MainWindow::setCurrentItem( VouwItem* item ) {
+    Vouw* v =item->object();
+    if( !v ) return;
+
+    switch( item->role() ) {
+        case VouwItem::ENCODED:
+            if( !v->isEncoded() )
+                encode( v );
+            vouwWidget->showEncoded( v->handle );
+            break;
+        default:
+            vouwWidget->showMatrix( v->matrix );
+    }
+
+    currentItem = item;
+
+}
+
 void 
 MainWindow::vouwItemDoubleClicked( const QModelIndex& index ) {
     VouwItem* item =vouwModel->fromIndex( index );
     if( !item ) return;
 
-    Vouw* v =item->object();
-    if( !v ) return;
-
-    std::cout << "Plok!" << std::endl;
-
-    vouwWidget->showMatrix( v->matrix );
-
-//    std::cout << item->data(0).toString().unicode() << " role: " << item->role() << std::endl;
+    setCurrentItem( item );
 }

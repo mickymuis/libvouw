@@ -214,7 +214,7 @@ VouwWidget::showMatrix( vouw_matrix_t* mat ) {
 QColor
 VouwWidget::colorLabel( int label ) {
     QColor c;
-    c.setHsv( (240 + (label * 49)) % 360, 200, 255 - (label >> 3) * 40 );
+    c.setHsv( (240 + (label * 49)) % 360, 200, 255 - ((label >> 3) * 25) % 200 );
     return c;
 }
 

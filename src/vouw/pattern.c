@@ -13,7 +13,9 @@ extern "C" {
 #include "list_sort.h"
 #include <stdlib.h>
 #include <math.h>
+#include <string.h>
 //#define BLOCKSIZE 16
+#define MAX(x, y) (((x) > (y)) ? (x) : (y))
 
 vouw_coord_t
 pattern_offset_abs( vouw_coord_t c, pattern_offset_t offs ) {
@@ -36,11 +38,14 @@ pattern_createSingle( int value ) {
     
     p->size =1;
     p->usage =0;
+    p->label =0;
     p->codeLength = 0.0;
     p->offsets = (pattern_offset_t*)malloc( sizeof( pattern_offset_t ) );
     p->offsets[0].row =0;
     p->offsets[0].col =0;
     p->offsets[0].value = value;
+    memset( &p->bounds, 0, sizeof( pattern_bounds_t ) );
+    p->bounds.width = p->bounds.height =1;
     INIT_LIST_HEAD( &(p->list) );
 
     return p;
@@ -51,6 +56,7 @@ pattern_createUnion( const pattern_t* p1, const pattern_t* p2, pattern_offset_t 
     pattern_t* p = (pattern_t*)malloc( sizeof( pattern_t ) );
     
     p->size =p1->size + p2->size;
+    p->label = MAX( p1->label, p2->label ) + 1;
     p->usage =0;
     p->offsets = (pattern_offset_t*)malloc( p->size * sizeof( pattern_offset_t ) );
     int k =0;
@@ -62,6 +68,8 @@ pattern_createUnion( const pattern_t* p1, const pattern_t* p2, pattern_offset_t 
         p->offsets[k].col += p2_offset.col;
     }
     INIT_LIST_HEAD( &(p->list) );
+    
+    p->bounds = pattern_computeBounds( p );
 
     return p;
 }
@@ -71,6 +79,7 @@ pattern_createVariantUnion( const pattern_t* p1, const pattern_t* p2, int varian
     pattern_t* p = (pattern_t*)malloc( sizeof( pattern_t ) );
     
     p->size =p1->size + p2->size;
+    p->label = MAX( p1->label, p2->label ) + 1;
     p->usage =0;
     p->offsets = (pattern_offset_t*)malloc( p->size * sizeof( pattern_offset_t ) );
     int k =0;
@@ -86,6 +95,8 @@ pattern_createVariantUnion( const pattern_t* p1, const pattern_t* p2, int varian
     }
     INIT_LIST_HEAD( &(p->list) );
 
+    p->bounds = pattern_computeBounds( p );
+
     return p;
 }
 
@@ -96,6 +107,7 @@ pattern_createCopy( const pattern_t* src ) {
     p->size =src->size;
     p->usage =src->usage;
     p->label =src->label;
+    p->bounds =src->bounds;
     p->codeLength =src->codeLength;
     p->offsets = (pattern_offset_t*)malloc( p->size * sizeof( pattern_offset_t ) );
     
@@ -196,6 +208,8 @@ pattern_computeBounds( const pattern_t* p ) {
         else if( o->col < pb.colMin )
             pb.colMin = o->col;
     }
+    pb.width = (pb.colMax - pb.colMin) + 1;
+    pb.height =(pb.rowMax - pb.rowMin) + 1;
     return pb;
 }
 

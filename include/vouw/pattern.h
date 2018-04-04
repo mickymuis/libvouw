@@ -29,20 +29,23 @@ pattern_offset_t
 pattern_offset( vouw_coord_t pivot1, vouw_coord_t pivot2 );
 
 typedef struct {
+    int rowMin;
+    int rowMax;
+    int colMin;
+    int colMax;
+    int width, height;
+} pattern_bounds_t;
+
+typedef struct {
     struct list_head list;
     pattern_offset_t* offsets;
     unsigned int usage;
     unsigned int size;
     double codeLength;
-    char label; // for debug printing
+    char label; // for debug printingi
+    pattern_bounds_t bounds;
 } pattern_t;
 
-typedef struct {
-    int rowMin;
-    int rowMax;
-    int colMin;
-    int colMax;
-} pattern_bounds_t;
 
 pattern_t*
 pattern_createSingle( int value );

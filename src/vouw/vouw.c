@@ -220,7 +220,7 @@ mergeEncodedPatterns( vouw_t* v, pattern_t* p1, pattern_t* p2, int variant, patt
                 region->variant =vn;
                 
                 //list_add( &(region->list), &(v->encoded->list) );
-                list_add( &(region->list), &(r1->list) );
+                list_add_tail( &(region->list), &(r1->list) );
                 
                 // Remove and free both r1 and r2
                 r1->pattern->usage--;
@@ -312,7 +312,7 @@ vouw_createFrom( vouw_matrix_t* m ) {
             region->variant = value;
 
             // Add to the encoded dataset
-            list_add( &(region->list), &(v->encoded->list) );
+            list_add_tail( &(region->list), &(v->encoded->list) );
 
             // Increment the pattern's usage so we can compute its code length later
             p0->usage++;
@@ -442,7 +442,7 @@ vouw_encode( vouw_t* v ) {
 int
 vouw_encodeStep( vouw_t* v ) {
     // Label all the patterns so we can print them
-    pattern_list_setLabels( v->codeTable ); // ONLY FOR DEBUG
+    //pattern_list_setLabels( v->codeTable ); // ONLY FOR DEBUG
     
     candidates_alloc( v );
 
@@ -476,8 +476,12 @@ vouw_encodeStep( vouw_t* v ) {
 
             p2 =r2->pattern;
             pattern_offset_t p2_offset = pattern_offset( r1->pivot, r2->pivot );
-           // if( p2_offset.row < 0 && p2_offset.col < 0 ) continue;
-            if( p2_offset.row > 10 || p2_offset.row < -10 || p2_offset.col > 10 || p2_offset.col < -10 ) continue;
+//            if( p2_offset.row < 0 && p2_offset.col < 0 ) continue;
+            if( p2_offset.row > (p1->bounds.rowMax+1) 
+                    || p2_offset.row < 0 
+                    || p2_offset.col > (p1->bounds.colMax+1) 
+                    || p2_offset.col < (-p1->bounds.colMin) -1 ) continue;
+            //if( p2_offset.row > 5 || p2_offset.row < -5 || p2_offset.col > 5 || p2_offset.col < -5 ) continue;
 
             int variant = ((r2->variant + base) - r1->variant) % base;
 

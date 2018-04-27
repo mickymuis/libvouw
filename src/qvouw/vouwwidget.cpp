@@ -172,28 +172,27 @@ VouwWidget::mouseReleaseEvent(QMouseEvent * /* event */)
 }
 
 void 
-VouwWidget::showMatrix( vouw_matrix_t* mat ) {
+VouwWidget::showMatrix( Vouw::Matrix2D* mat ) {
     if( vbo.isCreated() ) {
    //     vbo.release();
        // vbo.destroy();
     }
 
-    int height = mat->height;
-    float yCenter = height * .5f;
-    float xCenter = mat->width * .5f;
-    zoom = (float)qMax( height, mat->width ) / 2.f;
+    float yCenter = mat->height() * .5f;
+    float xCenter = mat->width() * .5f;
+    zoom = (float)qMax( mat->height(), mat->width() ) / 2.f;
 
     QVector<GLfloat> vertData;
-    for (int i = 0; i < height; ++i) {    
-        vouw_row_t* row = &mat->rows[i];
-        for (int j = 0; j < row->size; ++j) {
+    for (int i = 0; i < mat->height(); ++i) {    
+        Vouw::Matrix2D::ElementT *row = mat->rowPtr(i);
+        for (int j = 0; j < mat->width(); ++j) {
 
         // vertex position
         vertData.append((float)j - xCenter);
         vertData.append((float)i - yCenter);
         vertData.append(0.0f);
 
-        float value =(float)row->cols[j] / (float)mat->base;
+        float value =(float)row[j] / (float)mat->base();
 
         // color
 //        vertData.append( value < 0.25 ? 0.f : (value < 0.75 ? (value - 0.25f) * 2.f : 1.f ) ); // RED
@@ -219,35 +218,34 @@ VouwWidget::colorLabel( int label ) {
 }
 
 void 
-VouwWidget::showEncoded( vouw_t* v ) {
+VouwWidget::showEncoded( Vouw::Encoder* v ) {
     if( vbo.isCreated() ) {
       //  vbo.release();
       //  vbo.destroy();
     }
 
     QVector<GLfloat> vertData;
-    int height = v->mat->height;
+    int height = v->matrix()->height();
+    int width = v->matrix()->width();
     float yCenter = height * .5f;
-    float xCenter = v->mat->width * .5f;
-    zoom = (float)qMax( height, v->mat->width ) / 2.f;
+    float xCenter = width * .5f;
+    zoom = (float)qMax( height, width ) / 2.f;
 
-    struct list_head* pos;
-    list_for_each( pos, &(v->encoded->list) ) {
-        region_t* region = list_entry( pos, region_t, list );
+    for( auto&& region : *v->instanceSet() ) {
 
         //region_apply( region, m );
-        pattern_t* p =region->pattern;
-        for( int i =0; i < p->size; i++ ) {
+        Vouw::Pattern* p =region.pattern();
+        for( auto&& elem : p->elements() ) {
             // For each offset, compute its location on the automaton
-            vouw_coord_t c = pattern_offset_abs( region->pivot, p->offsets[i] );
+            Vouw::Coord2D c = elem.offset.abs( region.pivot() );
             // Set the buffer's value at c
             // vouw_matrix_setValue( m, c, (p->offsets[i].value + region->variant) % m->base );
             // float value = (float)((p->offsets[i].value + region->variant) % m->base) / (float)v->mat->base; 
-            vertData.append((float)c.col - xCenter);
-            vertData.append((float)c.row - yCenter);
+            vertData.append((float)c.col() - xCenter);
+            vertData.append((float)c.row() - yCenter);
             vertData.append(0.0f);
 
-            QColor color = colorLabel( p->label );
+            QColor color = colorLabel( p->label() );
 
             vertData.append( color.redF() );
             vertData.append( color.greenF() );

@@ -16,11 +16,11 @@ VouwItem::~VouwItem() {
 }
 
 void 
-VouwItem::setObject( Vouw* o ) {
+VouwItem::setObject( Vouw::Encoder* o ) {
     obj =o;
 }
 
-Vouw* 
+Vouw::Encoder* 
 VouwItem::object() const {
     if( !obj )
         if( !parentItem )
@@ -53,7 +53,7 @@ QVariant VouwItem::data(int column) const {
             return QVariant();
             break;
         case ROOT:
-            return obj ? obj->name : QObject::tr( "(object)" );
+            return str.isNull() ? QObject::tr( "(object)" ) : str;
             break;
         case MATRIX:
             return QString( QObject::tr( "Input matrix" ) );
@@ -211,16 +211,15 @@ VouwItemModel::removeRows(int row, int count, const QModelIndex &parent) {
 }
 
 VouwItem* 
-VouwItemModel::add( Vouw* v ) {
+VouwItemModel::add( Vouw::Encoder* v, const QString& name ) {
     beginInsertRows( QModelIndex(), rootItem->childCount(), rootItem->childCount() );
 
     VouwItem *parent =new VouwItem( VouwItem::ROOT, rootItem );
+    parent->setName( name );
     parent->setObject( v );
     new VouwItem( VouwItem::MATRIX, parent );
     new VouwItem( VouwItem::ENCODED, parent );
     new VouwItem( VouwItem::MODEL, parent );
-
-//    objList.append( parent );
 
     endInsertRows();
 
@@ -229,5 +228,12 @@ VouwItemModel::add( Vouw* v ) {
 
 VouwItem* 
 VouwItemModel::addEmpty( const QString& name ) {
-    return add( new Vouw(name) );
+    beginInsertRows( QModelIndex(), rootItem->childCount(), rootItem->childCount() );
+
+    VouwItem *parent =new VouwItem( VouwItem::ROOT, rootItem );
+    parent->setName( name );
+
+    endInsertRows();
+
+    return parent;
 }

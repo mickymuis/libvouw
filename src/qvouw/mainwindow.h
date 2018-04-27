@@ -1,11 +1,15 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
+#include <vouw/vouw.h>
 #include <QMainWindow>
 #include <QTextEdit>
 #include <QFile>
 
-class Vouw;
+VOUW_NAMESPACE_BEGIN
+class Encoder;
+VOUW_NAMESPACE_END
+
 class VouwWidget;
 class VouwItem;
 class VouwItemModel;
@@ -16,9 +20,10 @@ class MainWindow : public QMainWindow
 
 public:
     MainWindow();
+    void importImage( const QString& fileName, int levels );
 
 public slots:
-    void importImage();
+    void importImagePrompt();
     void quit();
 
 protected:
@@ -29,7 +34,7 @@ private slots:
 
 private:
     void updateConsole();
-    void encode( Vouw* );
+    void encode( Vouw::Encoder* );
     void setCurrentItem( VouwItem* );
 
     VouwWidget* vouwWidget;

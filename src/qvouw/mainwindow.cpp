@@ -7,6 +7,8 @@
 #include "mainwindow.h"
 #include "vouwitemmodel.h"
 
+#include <vouw/codetable.h>
+
 #include <stdio.h>
 #include <iostream>
 #include <iomanip>
@@ -20,7 +22,7 @@ MainWindow::MainWindow() : QMainWindow(), currentItem( 0 )
     QAction* actImportImage = new QAction(tr("&Import Image"), this);
     //newAct->setShortcuts(QKeySequence::New);
     actImportImage->setStatusTip(tr("Import image-type file and convert it to a matrix"));
-    connect(actImportImage, &QAction::triggered, this, &MainWindow::importImage);
+    connect(actImportImage, &QAction::triggered, this, &MainWindow::importImagePrompt);
 
     QAction* actQuit = new QAction(tr("&Quit"), this);
     actQuit->setShortcuts(QKeySequence::Quit);
@@ -65,9 +67,9 @@ MainWindow::MainWindow() : QMainWindow(), currentItem( 0 )
     console_stdout.setFileName( ".stdout.tmp" );
     console_stdout.open( QIODevice::ReadOnly );
 
-    *stderr =*fopen( ".stderr.tmp", "w" );
+   /* *stderr =*fopen( ".stderr.tmp", "w" );
     console_stderr.setFileName( ".stderr.tmp" );
-    console_stderr.open( QIODevice::ReadOnly );
+    console_stderr.open( QIODevice::ReadOnly );*/
 
     startTimer( 100 );
     
@@ -83,7 +85,7 @@ MainWindow::MainWindow() : QMainWindow(), currentItem( 0 )
 }
 
 void
-MainWindow::importImage() {
+MainWindow::importImagePrompt() {
     QString selectedFilter;
     QString fileName = QFileDialog::getOpenFileName(this,
                                 tr("Import image..."),
@@ -101,19 +103,27 @@ MainWindow::importImage() {
                                          tr("Quantization levels:"), items, 2, false, &ok);
     if (ok && !item.isEmpty()) {
         int levels = item.toInt();
-
-        std::cerr << levels << std::endl;
-
-        Vouw* v= Vouw::createFromImage( fileName, levels );
-        if( !v ) {
-            QMessageBox::critical(this, tr("Error"),
-            tr("Could not load selected image. Please see log for details."),
-            QMessageBox::Ok);
-        }
-        VouwItem* item = vouwModel->add( v );
-        if( !currentItem )
-            setCurrentItem( item );
+        importImage( fileName, levels );
     }
+}
+
+void
+MainWindow::importImage( const QString& fileName, int levels ) {
+
+    Vouw::Encoder* v= new ImageEncoder( fileName, levels );
+    if( !v->isValid() ) {
+        delete v;
+        QMessageBox::critical(this, tr("Error"),
+        tr("Could not load selected image. Please see log for details."),
+        QMessageBox::Ok);
+        QMessageBox::critical(this, tr("Error"),
+                fileName,
+                QMessageBox::Ok);
+        return;
+    }
+    VouwItem* item = vouwModel->add( v, QFileInfo( fileName ).fileName() );
+    if( !currentItem )
+        setCurrentItem( item );
 }
 
 void
@@ -123,9 +133,9 @@ MainWindow::quit() {
 
 void 
 MainWindow::updateConsole() {
-    console->setTextColor( Qt::darkCyan );
+   /* console->setTextColor( Qt::darkCyan );
     while( console_stderr.bytesAvailable() )
-        console->append( console_stderr.readLine().trimmed() );
+        console->append( console_stderr.readLine().trimmed() );*/
 
     console->setTextColor( Qt::darkBlue );
     while( console_stdout.bytesAvailable() )
@@ -138,29 +148,30 @@ MainWindow::timerEvent(QTimerEvent *event) {
 }
 
 void
-MainWindow::encode( Vouw* v ) {
+MainWindow::encode( Vouw::Encoder* v ) {
     while( v->encodeStep() ){
         updateConsole();
-        vouwWidget->showEncoded( v->handle );
+        vouwWidget->showEncoded( v );
         qApp->processEvents();
     }
 
-    std::cout << "Compression ratio: " << std::setprecision(4) << v->ratio() << "%" << std::endl;
+    std::cout << "Compression ratio: " << std::setprecision(4) << v->ratio() * 100.0 << "%" << std::endl;
+    std::cout << "Model: " << v->codeTable()->size() << " patterns, Instance Set: " << v->instanceSet()->size() << " regions." << std::endl;
 }
 
 void 
 MainWindow::setCurrentItem( VouwItem* item ) {
-    Vouw* v =item->object();
+    Vouw::Encoder* v =item->object();
     if( !v ) return;
 
     switch( item->role() ) {
         case VouwItem::ENCODED:
             if( !v->isEncoded() )
                 encode( v );
-            vouwWidget->showEncoded( v->handle );
+            vouwWidget->showEncoded( v );
             break;
         default:
-            vouwWidget->showMatrix( v->matrix );
+            vouwWidget->showMatrix( v->matrix() );
     }
 
     currentItem = item;

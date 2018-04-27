@@ -20,5 +20,9 @@ int main(int argc, char *argv[])
 
     MainWindow window;
     window.show();
+
+   // QStringList args = app.arguments();
+    for( int i =1; i < argc; i++ )
+        window.importImage( argv[i], 2 );
     return app.exec();
 }

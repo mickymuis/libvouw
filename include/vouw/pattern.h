@@ -5,7 +5,93 @@
  * Leiden Institute for Advanced Computer Science
  */
 
-#ifndef PATTERN_H
+#pragma once
+#include "vouw.h"
+#include "matrix.h"
+//#include "equivalence.h"
+#include <vector>
+
+VOUW_NAMESPACE_BEGIN
+
+class Variant;
+
+class Pattern {
+    public:
+        class OffsetT : public Coord2D { 
+            public:
+                OffsetT( int row =0, int col =0, int rowLength =0 );
+                OffsetT( const Coord2D& pivot1, const Coord2D& pivot2 );
+
+                Coord2D abs( const Coord2D& pivot ) const;
+                OffsetT translate( const OffsetT& offs ) const;
+
+                DirT direction() const;
+
+                int position() const override;
+        };
+        struct ElementT {
+            OffsetT offset;
+            Matrix2D::ElementT value;
+        };
+        typedef std::vector<ElementT> ListT;
+        struct BoundsT {
+            int rowMin;
+            int rowMax;
+            int colMin;
+            int colMax;
+            int width, height;
+        };
+
+        Pattern();
+        Pattern( const Pattern& );
+        Pattern( const Matrix2D::ElementT&, int rowLength );
+        Pattern( const Pattern& p1, const Pattern& p2, const OffsetT& );
+        Pattern( const Pattern& p1, const Variant& v1, const Pattern& p2, const Variant& v2, const OffsetT& );
+        ~Pattern();
+
+        void setUsage( int u ) { m_usage =u; }
+        int usage() const { return m_usage; }
+        int& usage() { return m_usage; }
+
+        int size() const { return m_elements.size(); }
+
+        void setRowLength( int l );
+        int rowLength() const { return m_rowLength; }
+
+        void setLabel( int i ) { m_label =i; }
+        int label() const { return m_label; }
+
+        static double codeLength( int usage, int totalInstances );
+        double updateCodeLength( int totalInstances );
+        double codeLength() const { return m_codeBits; }
+        static double bitsPerOffset( int patternWidth, int patternHeight, int base );
+        double updateBitsPerOffset( int base );
+        double bitsPerOffset() const { return m_bitsPerOffset; }
+
+        inline BoundsT bounds() const { return m_bounds; }
+        void recomputeBounds();
+        inline int squareSize() const { return m_bounds.width * m_bounds.height; }
+
+        bool isAdjacent( const Pattern& p, const OffsetT& offs ) const;
+
+        ListT& elements() { return m_elements; }
+        const ListT& elements() const { return m_elements; }
+
+    private:
+        void unionAdd( const Pattern& p1, const Pattern& p2, const OffsetT& );
+        ListT m_elements;
+        BoundsT m_bounds;
+        int m_usage;
+        int m_label;
+        double m_codeBits;
+        double m_bitsPerOffset;
+        int m_rowLength;
+};
+
+VOUW_NAMESPACE_END
+
+#if 0
+//#ifndef PATTERN_H
 #define PATTERN_H
 
 #ifdef __cplusplus

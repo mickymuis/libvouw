@@ -1,17 +1,26 @@
 cmake_minimum_required (VERSION 2.9)
 
-project (vouwmat)
+project (vouw)
+
+include(CheckCXXCompilerFlag)
+CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
+if(COMPILER_SUPPORTS_CXX11)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+else()
+    message(FATAL_ERROR "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. Please use a different C++ compiler.")
+endif()
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O3")
 
 #set( CMAKE_VERBOSE_MAKEFILE ON )
 
-list (APPEND CMAKE_C_FLAGS "-g -O2 -std=c99")
 
 add_library (vouw STATIC
-    src/vouw/matrix.c
-    src/vouw/pattern.c
-    src/vouw/region.c
-    src/vouw/vouw.c
-    src/vouw/list_sort.c)
+    src/vouw/matrix.cpp
+    src/vouw/pattern.cpp
+    src/vouw/region.cpp
+    src/vouw/codetable.cpp
+    src/vouw/equivalence.cpp
+    src/vouw/encoder.cpp)
 
 #add_executable (image-vouw 
 #    src/image-vouw/main.c)
@@ -31,15 +40,6 @@ set(CMAKE_AUTORCC ON)
 find_package(Qt5Widgets)
 
 if( Qt5Widgets_FOUND )
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
-# c++11
-    include(CheckCXXCompilerFlag)
-    CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
-    if(COMPILER_SUPPORTS_CXX11)
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-    else()
-        message(FATAL_ERROR "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. Please use a different C++ compiler.")
-    endif()
 # Tell CMake to create the helloworld executable
     add_executable( qvouw 
         src/qvouw/main.cpp

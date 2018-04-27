@@ -1,7 +1,7 @@
 #ifndef VOUWWIDGET_H
 #define VOUWWIDGET_H
 
-#include <vouw/vouw.h>
+#include <vouw/encoder.h>
 #include <vouw/matrix.h>
 
 #include <QOpenGLWidget>
@@ -20,8 +20,8 @@ public:
     explicit VouwWidget(QWidget *parent = 0);
     ~VouwWidget();
 
-    void showMatrix( vouw_matrix_t* mat );
-    void showEncoded( vouw_t* v );
+    void showMatrix( Vouw::Matrix2D* mat );
+    void showEncoded( Vouw::Encoder* v );
 
     QSize minimumSizeHint() const override;
     QSize sizeHint() const override;

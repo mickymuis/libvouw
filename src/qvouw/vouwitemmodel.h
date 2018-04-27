@@ -21,8 +21,11 @@ public:
     explicit VouwItem( Role, VouwItem* parent =0 );
     ~VouwItem();
 
-    void setObject( Vouw* );
-    Vouw* object() const;
+    void setObject( Vouw::Encoder* );
+    Vouw::Encoder* object() const;
+
+    void setName( const QString& n ) { str = n; }
+    QString name() const { return str; }
 
     void appendChild(VouwItem *child);
 
@@ -38,7 +41,8 @@ private:
     Role itemRole;
     QList<VouwItem*> childList;
     VouwItem *parentItem;
-    Vouw* obj;
+    QString str;
+    Vouw::Encoder* obj;
 
 };
 
@@ -49,7 +53,7 @@ public:
     VouwItemModel( QObject* parent =0 );
     ~VouwItemModel();
 
-    VouwItem* add( Vouw* );
+    VouwItem* add( Vouw::Encoder*, const QString& name );
     VouwItem* addEmpty( const QString& name );
 
     VouwItem* fromIndex( const QModelIndex& index ) const;

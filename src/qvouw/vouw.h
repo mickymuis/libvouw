@@ -3,32 +3,15 @@
 
 #include <QString>
 
-#include <vouw/vouw.h>
-#include <vouw/matrix.h>
+#include <vouw/encoder.h>
 
-class Vouw {
+class ImageEncoder : public Vouw::Encoder {
 public:
-    Vouw( const QString& name = "" );
-    ~Vouw();
+    ImageEncoder( const QString& filename, int levels );
+    ~ImageEncoder();
 
-    static Vouw* createFromImage( const QString& filename, int levels );
-
-    bool encodeStep();
-    void encode();
-    bool isEncoded() const;
-
-    double compressedSize() const;
-    double uncompressedSize() const;
-    double ratio() const;
-
-    vouw_matrix_t* matrix;
-    vouw_t* handle;
-    QString name;
 
 private:
-
-    double initialBits;
-    bool encoded;
 };
 
 #endif

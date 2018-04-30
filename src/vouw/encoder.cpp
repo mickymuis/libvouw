@@ -16,6 +16,7 @@
 #include <cmath>
 #include <iostream>
 #include <iomanip>
+#include <cassert>
 
 VOUW_NAMESPACE_BEGIN
 
@@ -84,7 +85,7 @@ Encoder::isValid() const {
 }
 
 void Encoder::setFromMatrix( Matrix2D* mat ) {
-    std::map<Matrix2D::ElementT,std::pair<Pattern*,Variant>> smap; // Singleton equivalence mapping
+    //std::map<Matrix2D::ElementT,std::pair<Pattern*,Variant>> smap; // Singleton equivalence mapping
 
     clear();
     m_ct = new CodeTable( mat );
@@ -98,15 +99,15 @@ void Encoder::setFromMatrix( Matrix2D* mat ) {
             Pattern* p =0;
             Variant v;
             // Try to find if an existing value->pattern mapping exists
-            auto it =smap.find( elem );
-            if( it != smap.end() ) { 
+            auto it =m_smap.find( elem );
+            if( it != m_smap.end() ) { 
                 p = (it->second).first; // pattern
                 v = (it->second).second; // variant
             }
             else {
                 // Use the EquivalenceSet to see if we can use 
                 // a variant of an existing pattern
-                for( auto&& pair : smap ) {
+                for( auto&& pair : m_smap ) {
                     v = m_es->makeVariant( *pair.second.first, m_mat, c );
                     if( v.isValid() ) {
                         p =pair.second.first;
@@ -122,7 +123,7 @@ void Encoder::setFromMatrix( Matrix2D* mat ) {
                 }
 
                 // Add mapping to the cache
-                smap[elem] = std::pair<Pattern*,Variant>(p,v);
+                m_smap[elem] = std::pair<Pattern*,Variant>(p,v);
             }
 
             p->usage()++;
@@ -147,6 +148,7 @@ void Encoder::clear() {
     if( m_ct )
         delete m_ct;
     m_encoded.clear();
+    m_smap.clear();
 
     m_priorBits =0.0;
     m_isEncoded =false;
@@ -241,6 +243,13 @@ bool Encoder::encodeStep() {
     updateCodeLengths();
     
     printf( "Actual gain: %f\n", oldBits - m_encodedBits );
+
+    for( auto it = m_ct->begin(); it != m_ct->end(); ) {
+        Pattern* p =*it;
+        it++;
+        prunePattern( p, false );
+    }
+
     std::cerr << std::flush;
     std::cout << std::flush;
     return true;
@@ -275,7 +284,7 @@ double
 Encoder::computeGain( const Candidate* c, int usage ) {
 
     // New pivots can be sized differently because their size depends on the number of regions
-    double newBitsPerPivot = m_encoded.bitsPerPivot();//RegionList::bitsPerPivot( m_encoded.size() - usage );
+    double newBitsPerPivot = m_encoded.bitsPerPivot();//RegionList::bitsPerPivot( totalInstances );
     double bits = m_encoded.size() * (m_encoded.bitsPerPivot() - newBitsPerPivot);
 
     // Compute the total size of the new model
@@ -343,6 +352,54 @@ Encoder::computeGain( const Candidate* c, int usage ) {
     return bits;
 }
 
+double
+Encoder::computePruningGain( const Pattern* p ) {
+
+    // New pivots can be sized differently because their size depends on the number of regions
+    const int totalInstances = m_encoded.size() + p->usage() * (p->size() - 1);
+    double newBitsPerPivot = m_encoded.bitsPerPivot();//RegionList::bitsPerPivot( totalInstances );
+    double bits = m_encoded.size() * (m_encoded.bitsPerPivot() - newBitsPerPivot);
+
+    // Compute the total size of the new model
+    int newModelSize = m_ct->size() - 1;
+
+    // Recompute code table and region codewords based on the new model's size
+    for( auto&& p0 : *m_ct ) {
+        bits += p0->codeLength() * (p0->usage() + 1);
+        bits -= Pattern::codeLength( p0->usage(), totalInstances ) * (p0->usage() + 1);
+    }
+
+    // Step 1. remove the bits of the regions and code table codeword of @p completely
+    double codeLength =Pattern::codeLength( p->usage(), totalInstances );
+    // Instance set part
+    bits += (codeLength + newBitsPerPivot /*c->p1->bitsPerVariant() +*/) * p->usage();
+    // Code table part
+    bits += codeLength + p->bitsPerOffset() * p->size();
+    
+    // Step 2. Replace the instances of @p by singleton patterns
+    std::map<Pattern*, int> singleton; // Mapping of increased number of instances to singleton patterns
+    for( auto&& elem : p->elements() ) {
+        Pattern* ps = m_smap[elem.value].first; // Singleton pattern matching elem
+        assert( ps );
+        singleton[ps]++; // Increment usage
+    }
+
+    // Step 3. Update the singleton patterns depending on their new usages
+    for( auto&& pair : singleton ) {
+        Pattern* ps = pair.first;
+        int newUsage = ps->usage() + p->usage() * pair.second;
+        double newCodeLength = Pattern::codeLength( newUsage, totalInstances );
+
+        // Update the code table
+        bits += ps->codeLength() - newCodeLength;
+
+        // Add the new instances
+        bits += (ps->codeLength() + newBitsPerPivot) * ps->usage();
+        bits -= (newCodeLength + newBitsPerPivot) * newUsage;
+    }
+    return bits;
+}
+
 void 
 Encoder::mergePatterns( const Candidate* c ) {
     // Create the merged pattern
@@ -353,7 +410,7 @@ Encoder::mergePatterns( const Candidate* c ) {
     //for( auto it1 = m_encoded.begin(); it1 != m_encoded.end(); it1++ ) {
     for( int i =0; i < m_encoded.size(); i++ ) {
         const Region& r1 = m_encoded[i];//*it1;
-        //if( r1.isMasked() ) continue;
+        if( r1.isMasked() ) continue;
         //r1.setMasked( true );
 
         Pattern* p1 =r1.pattern();
@@ -362,7 +419,7 @@ Encoder::mergePatterns( const Candidate* c ) {
 //        for( auto it2 = m_encoded.begin(); it2 != m_encoded.end(); it2++ ) {
         for( int j=i+1; j < m_encoded.size(); j++ ) {
             const Region& r2 = m_encoded[j];//*it2;
-            //if( r2.isMasked() ) continue;
+            if( r2.isMasked() ) continue;
 
             //if( r2.pivot() < r1.pivot() ) continue;
             //if( r2.pivot().row() > r1.pivot().row() + p1->bounds().height ) break;
@@ -386,7 +443,8 @@ Encoder::mergePatterns( const Candidate* c ) {
 
             Coord2D pivot =r1.pivot();
 
-            m_encoded.erase( m_encoded.begin() + j );
+            //m_encoded.erase( m_encoded.begin() + j );
+            m_encoded[j].setMasked( true ); // Mark for deletion
             m_encoded[i] = Region( p_union, pivot, v, false );
 
 
@@ -409,6 +467,7 @@ Encoder::mergePatterns( const Candidate* c ) {
         }
     }
 
+    m_encoded.eraseIfMasked( m_encoded.begin(), m_encoded.end() );
     m_encoded.unmaskAll();
 
     printf( "Actual usage: %d\n", p_union->usage() );
@@ -416,12 +475,55 @@ Encoder::mergePatterns( const Candidate* c ) {
 }
 
 void
-Encoder::prunePattern( Pattern* p ) {
+Encoder::prunePattern( Pattern* p, bool onlySingleton ) {
     if( p->size() == 1 ) return;
     if( p->usage() == 0 ) {
         m_ct->remove( p );
         delete p;
     }
+    if( onlySingleton ) return;
+
+    // The complex case for non-zero usage patterns
+    // Calculate gain first to see if we have to do anything
+    double gain =computePruningGain( p );
+    if( gain < 0.0 ) return;
+    
+    fprintf( stderr, "Pruning pattern %d would result in a gain of %f bits.\n", p->label(), gain );
+    
+    // Find every region in which @p occurs and replace it with singletons
+    const std::size_t currentInstances =m_encoded.size();
+    for( int i =0; i < currentInstances; i++ ) {
+        const Region& r =m_encoded[i];
+        if( r.pattern() != p ) continue;
+
+        Coord2D origin =r.pivot();
+        bool first =true;
+        for( auto&& elem : p->elements() ) {
+            PatternVariantT pvt = m_smap[elem.value];
+            assert( pvt.first );
+            Coord2D pivot = elem.offset.abs( origin );
+
+            if( first ) {
+                m_encoded[i] = Region( pvt.first, pivot, pvt.second, false );
+            } else {
+                m_encoded.emplace_back( pvt.first, pivot, pvt.second, false );
+            }
+            pvt.first->usage()++;
+            first =false;
+        }
+    }
+
+    // The instance set needs to be resorted
+    std::sort( m_encoded.begin(), m_encoded.end() );
+    m_ct->remove( p );
+    delete p;
+
+    double oldBits = m_encodedBits;
+
+    updateCodeLengths();
+    
+    fprintf( stderr, "Actual pruning gain: %f\n", oldBits - m_encodedBits );
+
 }
 
 VOUW_NAMESPACE_END

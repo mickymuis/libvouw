@@ -100,7 +100,7 @@ Pattern::~Pattern() {}
 double 
 Pattern::codeLength( int usage, int totalInstances ) {
     if( !usage )
-        return 0.0;
+        usage =1;//return 0.0;
     return -log2( (double)usage / (double)totalInstances );
 }
 

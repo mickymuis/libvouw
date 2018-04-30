@@ -7,7 +7,8 @@
 
 #pragma once
 #include "vouw.h"
-#include <set>
+//#include <set>
+#include <algorithm>
 #include <vouw/equivalence.h>
 
 VOUW_NAMESPACE_BEGIN
@@ -17,6 +18,8 @@ class Variant;
 class Region;
 class Matrix2D;
 
+inline bool region_is_masked( const Region& );
+
 class RegionList : public std::vector<Region> {
     public:
         RegionList( int matWidth =0, int matHeight =0, int matBase =0 );
@@ -24,6 +27,7 @@ class RegionList : public std::vector<Region> {
         ~RegionList();
 
         void unmaskAll();
+        inline void eraseIfMasked( RegionList::iterator begin, RegionList::iterator end ) { erase( std::remove_if( begin, end, region_is_masked ), end ); }
 
         void updateCodeLengths();
 
@@ -82,6 +86,9 @@ class Region {
 
 bool operator<(const Region&, const Region& );
 
+inline bool region_is_masked( const Region& r ) {
+    return r.isMasked();
+}
 
 VOUW_NAMESPACE_END
 

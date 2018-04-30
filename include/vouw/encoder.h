@@ -9,6 +9,7 @@
 #include "vouw.h"
 #include "pattern.h"
 #include "region.h"
+#include <map>
 
 VOUW_NAMESPACE_BEGIN
 
@@ -43,8 +44,8 @@ class Encoder {
         Matrix2D* matrix() const { return m_mat; }
         CodeTable* codeTable() const { return m_ct; }
         const RegionList* instanceSet() const { return &m_encoded; }
-
         double uncompressedSize() const { return m_priorBits; }
+
         double compressedSize() const { return m_encodedBits; }
         double ratio() const { return m_encodedBits / m_priorBits; }       
 
@@ -55,6 +56,9 @@ class Encoder {
         Matrix2D* m_mat;
         CodeTable* m_ct;
         RegionList m_encoded;
+        typedef std::pair<Pattern*,Variant> PatternVariantT;
+        typedef std::map<Matrix2D::ElementT,PatternVariantT> SingletonEqvMapT;
+        SingletonEqvMapT m_smap; // Singleton equivalence mapping
         double m_priorBits;
         double m_encodedBits;
         bool m_isEncoded;
@@ -63,8 +67,9 @@ class Encoder {
     private:
         Encoder( const Encoder& ) {}
         double computeGain( const Candidate*, int usage );
+        double computePruningGain( const Pattern* p );
         void mergePatterns( const Candidate* );
-        void prunePattern( Pattern* );
+        void prunePattern( Pattern*, bool onlySingleton = true );
 
 };
 

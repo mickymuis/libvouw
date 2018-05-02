@@ -32,16 +32,20 @@ class Variant {
 
 class EquivalenceSet {
     public:
+        EquivalenceSet();
         virtual ~EquivalenceSet() {}
 
-        virtual Variant makeVariant( const Pattern& p, const Matrix2D* mat, const Coord2D& pivot );
-        virtual Variant makeVariant( const Pattern& p_union, 
+        virtual Variant* makeVariant( const Pattern& p, const Matrix2D* mat, const Coord2D& pivot );
+        virtual Variant* makeVariant( const Pattern& p_union, 
                                      const Pattern& p1, 
                                      const Pattern& p2, 
                                      const Variant& v1, 
                                      const Variant& v2,
                                      const Pattern::OffsetT& offset );
-        virtual Variant makeNullVariant();
+        virtual Variant* makeNullVariant();
+    private:
+        Variant m_null;
+        Variant m_true;
 
 };
 

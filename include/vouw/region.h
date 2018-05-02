@@ -7,16 +7,16 @@
 
 #pragma once
 #include "vouw.h"
-//#include <set>
+#include <vector>
 #include <algorithm>
 #include <vouw/equivalence.h>
+#include "matrix.h"
 
 VOUW_NAMESPACE_BEGIN
 
 class Pattern;
 class Variant;
 class Region;
-class Matrix2D;
 
 inline bool region_is_masked( const Region& );
 
@@ -40,7 +40,10 @@ class RegionList : public std::vector<Region> {
         inline int matrixWidth() const { return m_width; }
         inline int matrixHeight() const { return m_height; }
 
+        void decompose( const Region& );
+
     private:
+        void decomposeRecursive( const Region& );
         int m_width, m_height, m_base, m_nodeCount;
         double m_bits;
         double m_stdBitsPerPivot;
@@ -49,7 +52,7 @@ class RegionList : public std::vector<Region> {
 
 class Region {
     public:
-        Region( Pattern* pattern, const Coord2D& pivot, const Variant& variant, bool masked =false );
+        Region( Pattern* pattern, const Coord2D& pivot, const Variant* variant, bool masked =false );
         Region();
         ~Region();
 
@@ -61,9 +64,8 @@ class Region {
         void setPivot( const Coord2D& c ) { m_pivot =c; }
         Coord2D pivot() const { return m_pivot; }
 
-        void setVariant( const Variant& v ) { m_variant =v; }
-        const Variant& variant() const { return m_variant; }
-        Variant& variant() { return m_variant; }
+        void setVariant( const Variant* v ) { m_variant =v; }
+        const Variant* variant() const { return m_variant; }
 
         void setMasked( bool b, DirT dir = DirAll ) const;
         bool isMasked( DirT dir = DirAll ) const { return m_mask & dir; }
@@ -79,7 +81,7 @@ class Region {
         Coord2D m_pivot;
 
         friend class RegionList;
-        mutable Variant m_variant;
+        mutable const Variant* m_variant;
         mutable int m_mask;
         mutable double m_variantBits;
 };
@@ -91,45 +93,4 @@ inline bool region_is_masked( const Region& r ) {
 }
 
 VOUW_NAMESPACE_END
-
-//#ifndef REGION_H
-#if 0
-#define REGION_H
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#include <vouw/matrix.h>
-#include <vouw/pattern.h>
-#include "list.h"
-
-typedef struct {
-    struct list_head list;
-    pattern_t* pattern;
-    vouw_coord_t pivot;
-    int variant;
-    bool masked;
-} region_t;
-
-region_t*
-region_create( pattern_t* pattern, vouw_coord_t pivot );
-
-void
-region_apply( const region_t* region, vouw_matrix_t* m );
-
-void
-region_free( region_t* r );
-
-void
-region_list_free( region_t* );
-
-void 
-region_list_unmask( region_t* );
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif
 

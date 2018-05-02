@@ -6,6 +6,8 @@
  */
 
 #include <vouw/equivalence.h>
+#include <vouw/pattern.h>
+#include <vouw/matrix.h>
 
 VOUW_NAMESPACE_BEGIN
 
@@ -17,20 +19,22 @@ EquivalenceSet::isEquivalent( const Pattern* p1, const Pattern* p2 ) const {
     return std::equal( list1.begin(), list1.end(), list2.begin() );
 }*/
 
-/* The default equivalence simply does a test for a strict isomorpihic occurence */
-Variant 
+EquivalenceSet::EquivalenceSet() : m_null( false ), m_true( true ) {}
+
+/* The default equivalence simply does a test for a strict isomorphic occurence */
+Variant* 
 EquivalenceSet::makeVariant( const Pattern& p, const Matrix2D* mat, const Coord2D& pivot ) {
 
    for( auto&& elem : p.elements() ) {
         if( !mat->checkBounds( elem.offset ) )
-            return Variant(false);
+            return &m_null;
         if( mat->value( elem.offset.abs( pivot ) ) != elem.value )
-            return Variant(false);
+            return &m_null;
    }
-   return Variant(true);
+   return &m_true;
 }
 
-Variant 
+Variant* 
 EquivalenceSet::makeVariant( const Pattern& p_union, 
              const Pattern& p1, 
              const Pattern& p2, 
@@ -38,12 +42,12 @@ EquivalenceSet::makeVariant( const Pattern& p_union,
              const Variant& v2,
              const Pattern::OffsetT& offset ) {
 
-    return Variant(false);
+    return &m_null;
 }
 
-Variant
+Variant*
 EquivalenceSet::makeNullVariant() {
-    return Variant(true);
+    return &m_null;
 }
 
 /* The null-variant */

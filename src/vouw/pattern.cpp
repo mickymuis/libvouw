@@ -50,8 +50,10 @@ Pattern::OffsetT::position() const {
 Pattern::Pattern()
     : m_usage( 0 ),
     m_label( 0 ),
-    m_codeBits( 0 ), m_bitsPerOffset( 0 ) {
+    m_codeBits( 0 ), m_bitsPerOffset( 0 ),
+    m_active( true ) {
     m_bounds ={};
+    m_composition = { 0, 0, 0, 0, OffsetT() };
 }
 
 Pattern::Pattern( const Pattern& p ) {
@@ -62,30 +64,37 @@ Pattern::Pattern( const Pattern& p ) {
     m_usage =p.m_usage;
     m_elements =p.m_elements;
     m_rowLength =p.m_rowLength;
+    m_active = p.m_active;
+    m_composition = p.m_composition;
 }
 
 Pattern::Pattern( const Matrix2D::ElementT& value, int rowLength ) 
     : m_usage( 0 ),
     m_label( 0 ),
     m_rowLength( rowLength ),
-    m_codeBits( 0 ), m_bitsPerOffset( 0 ) {
+    m_codeBits( 0 ), m_bitsPerOffset( 0 ),
+    m_active( true ) {
     m_bounds ={ 0,0,0,0,1,1 };
+    m_composition = { 0, 0, 0, 0, OffsetT() };
     m_elements.push_back( { OffsetT(0,0,rowLength), value } );
 }
 
 Pattern::Pattern( const Pattern& p1, const Pattern& p2, const OffsetT& offs )
     : m_usage( 0 ),
     m_label( 0 ),
-    m_codeBits( 0 ), m_bitsPerOffset( 0 ) {
+    m_codeBits( 0 ), m_bitsPerOffset( 0 ),
+    m_active( true ) {
     m_rowLength = p1.rowLength();
     unionAdd( p1, p2, offs );
     recomputeBounds();
+    m_composition = { &p1, &p2, 0, 0, offs };
 }
 
 Pattern::Pattern( const Pattern& p1, const Variant& v1, const Pattern& p2, const Variant& v2, const OffsetT& offs )
     : m_usage( 0 ),
     m_label( 0 ),
-    m_codeBits( 0 ), m_bitsPerOffset( 0 ) {
+    m_codeBits( 0 ), m_bitsPerOffset( 0 ),
+    m_active( true ) {
     m_rowLength = p1.rowLength();
     Pattern p1v( p1 );
     v1.apply( p1v );
@@ -93,6 +102,7 @@ Pattern::Pattern( const Pattern& p1, const Variant& v1, const Pattern& p2, const
     v2.apply( p2v );
     unionAdd( p1v, p2v, offs );
     recomputeBounds();
+    m_composition = { &p1, &p2, &v1, &v2, offs };
 }
 
 Pattern::~Pattern() {}

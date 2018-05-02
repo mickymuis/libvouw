@@ -8,7 +8,6 @@
 #pragma once
 #include "vouw.h"
 #include "matrix.h"
-//#include "equivalence.h"
 #include <vector>
 
 VOUW_NAMESPACE_BEGIN
@@ -41,6 +40,13 @@ class Pattern {
             int colMax;
             int width, height;
         };
+        struct CompositionT {
+            const Pattern *p1, *p2;
+            const Variant *v1, *v2;
+            OffsetT offset;
+
+            bool isValid() const { return p1 && p2; }
+        };
 
         Pattern();
         Pattern( const Pattern& );
@@ -61,6 +67,9 @@ class Pattern {
         void setLabel( int i ) { m_label =i; }
         int label() const { return m_label; }
 
+        void setActive( bool b ) { m_active =b; }
+        bool isActive() const { return m_active; }
+
         static double codeLength( int usage, int totalInstances );
         double updateCodeLength( int totalInstances );
         double codeLength() const { return m_codeBits; }
@@ -77,6 +86,8 @@ class Pattern {
         ListT& elements() { return m_elements; }
         const ListT& elements() const { return m_elements; }
 
+        const CompositionT& composition() const { return m_composition; }
+
     private:
         void unionAdd( const Pattern& p1, const Pattern& p2, const OffsetT& );
         ListT m_elements;
@@ -86,100 +97,32 @@ class Pattern {
         double m_codeBits;
         double m_bitsPerOffset;
         int m_rowLength;
+        bool m_active;
+        CompositionT m_composition;
 };
 
+inline bool pattern_is_active( const Pattern* p ) { return p->isActive(); }
+
+/*class Composition {
+    public:
+        Composition( const Pattern* p1, const Pattern* p2, const Variant& v1, const Variant& v2, const Pattern::OffsetT& offset );
+        Composition();
+        ~Composition() {}
+
+        Pattern* p1() { return m_p1; }
+        const Pattern* p1() const { return m_p1; }
+        Pattern* p2() { return m_p2; }
+        const Pattern* p2() const { return m_p2; }
+
+        const Pattern::OffsetT& offset() const { return m_offset; }
+
+        const Variant& v1() const { return m_v1; }
+        const Variant& v2() const { return m_v2; }
+
+    private:
+        Pattern *m_p1, *m_p2;
+        Variant m_v1, m_v2;
+        Pattern::OffsetT m_offset;
+};*/
+
 VOUW_NAMESPACE_END
-
-#if 0
-//#ifndef PATTERN_H
-#define PATTERN_H
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#include "list.h"
-#include <vouw/matrix.h>
-#include <stdbool.h>
-
-typedef struct {
-    int row;
-    int col;
-    vouw_unode32_t value;
-} pattern_offset_t;
-
-vouw_coord_t
-pattern_offset_abs( vouw_coord_t c, pattern_offset_t offs );
-
-pattern_offset_t
-pattern_offset( vouw_coord_t pivot1, vouw_coord_t pivot2 );
-
-typedef struct {
-    int rowMin;
-    int rowMax;
-    int colMin;
-    int colMax;
-    int width, height;
-} pattern_bounds_t;
-
-typedef struct {
-    struct list_head list;
-    pattern_offset_t* offsets;
-    unsigned int usage;
-    unsigned int size;
-    double codeLength;
-    char label; // for debug printingi
-    pattern_bounds_t bounds;
-} pattern_t;
-
-
-pattern_t*
-pattern_createSingle( int value );
-
-pattern_t*
-pattern_createUnion( const pattern_t* p1, const pattern_t* p2, pattern_offset_t p2_offset );
-
-pattern_t*
-pattern_createVariantUnion( const pattern_t* p1, const pattern_t* p2, int variant, pattern_offset_t p2_offset, int base );
-
-pattern_t*
-pattern_createCopy( const pattern_t* src );
-
-void
-pattern_free( pattern_t* p );
-
-void
-pattern_updateCodeLength( pattern_t* p, unsigned int totalNodeCount );
-
-double 
-pattern_computeCodeLength( const pattern_t* p, unsigned int totalNodeCount );
-
-bool
-pattern_isMatch( const pattern_t* p, const vouw_matrix_t* m, vouw_coord_t pivot, int* variant );
-
-pattern_bounds_t
-pattern_computeBounds( const pattern_t* p );
-
-void
-pattern_setMatrixValues( const pattern_t* p, vouw_coord_t pivot, vouw_matrix_t* m, vouw_unode32_t value );
-
-void
-pattern_list_free( pattern_t* list );
-
-void 
-pattern_list_setLabels( pattern_t* list );
-
-double
-pattern_list_updateCodeLength( pattern_t* list, unsigned int totalNodeCount );
-
-void
-pattern_list_sortByUsageDesc( pattern_t* head );
-
-void
-pattern_list_sortBySizeDesc( pattern_t* head );
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif

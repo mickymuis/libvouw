@@ -8,13 +8,14 @@
 #include <vouw/region.h>
 #include <vouw/pattern.h>
 #include <vouw/matrix.h>
+#include <vouw/equivalence.h>
 #include <cmath>
 
 VOUW_NAMESPACE_BEGIN
 
 /* class Region implementation */
 
-Region::Region( Pattern* pattern, const Coord2D& pivot, const Variant& variant, bool masked ) : 
+Region::Region( Pattern* pattern, const Coord2D& pivot, const Variant* variant, bool masked ) : 
     m_pattern( pattern ),
     m_pivot( pivot ),
     m_variant( variant ),
@@ -22,7 +23,7 @@ Region::Region( Pattern* pattern, const Coord2D& pivot, const Variant& variant, 
 {
 }
 
-Region::Region() : m_variant(true) {}
+Region::Region() : m_variant(0) {}
 Region::~Region() {} 
 
 void
@@ -93,63 +94,35 @@ RegionList::setMatrixSize( int width, int height, int base ) {
     }
 }
 
+/** Decomposes region @r into regions r1 and r2, defined by the composition on @r.pattern()
+ *  If r1 and/or r2 contain an inactive pattern, each is decomposed recursively.
+ *  The final regions are covering @r completely and are pushed to the back of the list.
+ *  @r is not removed from the list and this function leaves the list in an unsorted state.
+ */
+void
+RegionList::decompose( const Region& r ) {
+    const Pattern* p =r.pattern();
+    const Pattern::CompositionT& comp = r.pattern()->composition();
+    if( !comp.isValid() ) return;
+
+    Coord2D pivot2 = comp.offset.abs( r.pivot() );
+
+    Region r1( (Pattern*)comp.p1, r.pivot(), comp.v1 );
+    if( !comp.p1->isActive() )
+        decompose( r1 );
+    else {
+        ((Pattern*)comp.p1)->usage()++;
+        push_back( r1 );
+    }
+
+    Region r2( (Pattern*)comp.p2, pivot2, comp.v2 );
+    if( !comp.p2->isActive() )
+        decompose( r2 );
+    else {
+        ((Pattern*)comp.p2)->usage()++;
+        push_back( r2 );
+    }
+}
+
 VOUW_NAMESPACE_END
 
-#if 0
-//#ifdef __cplusplus
-extern "C" {
-//#endif
-
-#include <vouw/region.h>
-#include <stdlib.h>
-
-region_t*
-region_create( pattern_t* pattern, vouw_coord_t pivot ) {
-    region_t* r = (region_t*)malloc( sizeof( region_t ) );
-    r->pivot =pivot;
-    r->pattern = pattern;
-    r->masked = false;
-    INIT_LIST_HEAD( &(r->list ) );
-    return r;
-}
-
-void
-region_apply( const region_t* region, vouw_matrix_t* m ) {
-    pattern_t* p =region->pattern;
-    for( int i =0; i < p->size; i++ ) {
-        // For each offset, compute its location on the automaton
-        vouw_coord_t c = pattern_offset_abs( region->pivot, p->offsets[i] );
-        // Set the buffer's value at c
-        vouw_matrix_setValue( m, c, (p->offsets[i].value + region->variant) % m->base );
-    }
-}
-
-void
-region_free( region_t* r ) {
-    free( r );
-}
-
-void
-region_list_free( region_t* r ) {
-    struct list_head* tmp,* pos;
-    list_for_each_safe( pos, tmp, &(r->list) ) {
-        region_t* entry = list_entry( pos, region_t, list );
-        list_del( pos );
-        
-        region_free( entry );
-    }
-    free( r );
-}
-
-void 
-region_list_unmask( region_t* r ) {
-    struct list_head* pos;
-    list_for_each( pos, &(r->list) ) {
-        region_t* entry = list_entry( pos, region_t, list );
-        entry->masked =false;
-    }
-}
-
-//#ifdef __cplusplus
-}
-#endif

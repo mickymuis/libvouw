@@ -33,9 +33,12 @@ void CodeTable::updateCodeLengths( int totalInstances ) {
     m_bits =0.0;
 
     for( auto p : *this ) {
-        m_bits += p->updateCodeLength( totalInstances );
+        if( p->isActive() ) {
+            m_bits += p->updateCodeLength( totalInstances );
+            m_bits += p->size() * p->updateBitsPerOffset( m_base );
+        } else
+            p->updateCodeLength( totalInstances );
         //m_bits += p->size() * m_stdBitsPerOffset;
-        m_bits += p->size() * p->updateBitsPerOffset( m_base );
     }
 }
 

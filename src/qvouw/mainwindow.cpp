@@ -156,7 +156,7 @@ MainWindow::encode( Vouw::Encoder* v ) {
     }
 
     std::cout << "Compression ratio: " << std::setprecision(4) << v->ratio() * 100.0 << "%" << std::endl;
-    std::cout << "Model: " << v->codeTable()->size() << " patterns, Instance Set: " << v->instanceSet()->size() << " regions." << std::endl;
+    std::cout << "Model: " << v->codeTable()->countIfActive() << " patterns, Instance Set: " << v->instanceSet()->size() << " regions." << std::endl;
 }
 
 void 

@@ -56,8 +56,9 @@ class Encoder {
         Matrix2D* m_mat;
         CodeTable* m_ct;
         RegionList m_encoded;
-        typedef std::pair<Pattern*,Variant> PatternVariantT;
+        typedef std::pair<Pattern*,Variant*> PatternVariantT;
         typedef std::map<Matrix2D::ElementT,PatternVariantT> SingletonEqvMapT;
+        typedef std::map<Pattern*,int> PatternUsageMapT;
         SingletonEqvMapT m_smap; // Singleton equivalence mapping
         double m_priorBits;
         double m_encodedBits;
@@ -68,6 +69,7 @@ class Encoder {
         Encoder( const Encoder& ) {}
         double computeGain( const Candidate*, int usage );
         double computePruningGain( const Pattern* p );
+        double computeDecompositionGain( const Pattern* p );
         void mergePatterns( const Candidate* );
         void prunePattern( Pattern*, bool onlySingleton = true );
 

@@ -8,11 +8,14 @@
 #pragma once
 #include "vouw.h"
 #include <list>
+#include <algorithm>
 
 VOUW_NAMESPACE_BEGIN
 
 class Pattern;
 class Matrix2D;
+
+inline bool pattern_is_active( const Pattern* );
 
 class CodeTable : public std::list<Pattern*> {
     public:
@@ -23,6 +26,7 @@ class CodeTable : public std::list<Pattern*> {
         void updateCodeLengths( int totalInstances );
         void sortBySizeDesc();
 
+        inline int countIfActive() const { return std::count_if( begin(), end(), pattern_is_active ); }
         double totalLength() const { return m_bits; }
         //double bitsPerOffset() const { return m_stdBitsPerOffset; }
 

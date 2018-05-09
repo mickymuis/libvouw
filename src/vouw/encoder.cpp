@@ -161,11 +161,13 @@ bool Encoder::encodeStep() {
     int progress =0, total = m_encoded.size();
     std::cerr << "Finding candidates ... ";
 
+    static int max_coeff =0;
+
     //for( auto&& r1 : m_encoded ) {
     for( int i =0; i < m_encoded.size(); i++ ) {
         const Region& r1 = m_encoded[i];
-       // if( r1.isMasked() ) continue;
-       // r1.setMasked( true );
+       // if( r1.isFlagged() ) continue;
+       // r1.setFlagged( true );
 
         Pattern* p1 =r1.pattern();
         assert( p1->isActive() );
@@ -173,35 +175,46 @@ bool Encoder::encodeStep() {
         if( progress++ % (total/10+1) == 0 )
           std::cerr << progress*100/total << "% ";
 
+        int overlap_coefficient =0; // Only if p1 == p2
+
         for( int j =i+1; j < m_encoded.size(); j++ ) {
             const Region& r2 = m_encoded[j];
 //        for( auto&& r2 : m_encoded ) {
-         //   if( r2.isMasked() ) continue;
+         //   if( r2.isFlagged() ) continue;
 
             //if( r2.pivot() < r1.pivot() ) break;
-            if( r2.pivot().row() > r1.pivot().row() + p1->bounds().height ) break;
-            
             Pattern* p2 =r2.pattern();
+            if( r2.pivot().row() > r1.pivot().row() + p1->bounds().height ) break;
 
             Pattern::OffsetT offset( r1.pivot(), r2.pivot() );
+            if( !p1->isAdjacent( offset ) ) continue;
+            if( p1 == p2 ) {
+                overlap_coefficient = (offset.col() - p1->bounds().colMin + p2->bounds().width) + 
+                    (offset.row() - p1->bounds().rowMin) * (p1->bounds().width + p2->bounds().width + 1);
 
-            if( p1 == p2 && r1.isMasked( offset.direction() ) ) continue;
-            if( !p1->isAdjacent( *p2, offset ) ) continue;
+                max_coeff = std::max( max_coeff, overlap_coefficient );
 
+                r1.bitmaskGrow( overlap_coefficient+1 );
+                if( r1.bitmask()[overlap_coefficient] ) continue;
+            }
+
+            
             // Increment the usage count of this particular combination
             Candidate c = { p1, p2, (Variant*)r1.variant(), (Variant*)r2.variant(), offset };
             candidates[c]++;
 
             //fprintf( stderr, "%d + %d (%d,%d) @ (%d,%d)\n", p1->label(),p2->label(),offset.row(),offset.col(),r1.pivot().row(),r1.pivot().col());
-            if( p1 == p2 )
-                r2.setMasked( true, offset.direction() );
+            if( p1 == p2 ) {
+                r2.bitmaskGrow( overlap_coefficient+1 );
+                r2.bitmask()[overlap_coefficient] = true;
+            }
         
         }
     }
 
     std::cerr << std::endl << candidates.size() << " canditates found. Bucket count: " << candidates.bucket_count() << std::endl;
 
-    m_encoded.unmaskAll();
+    m_encoded.clearBitmasks();
 
     int bestUsage =0;
     double bestGain =0.0;
@@ -230,6 +243,8 @@ bool Encoder::encodeStep() {
                     p->label(), p->usage(), p->bounds().width, p->bounds().height, p->codeLength() );
         }
         printf( "Total number of succesfull decompositions: %d\n", decompositions );
+        printf( "Biggest overlap coefficient: %d\n", max_coeff );
+
         return false;
     }
     printf( "Merging '%d' and '%d' (%d,%d)\n", 
@@ -248,6 +263,19 @@ bool Encoder::encodeStep() {
     
     printf( "Actual gain: %f\n", oldBits - m_encodedBits );
 
+    if( std::abs((oldBits - m_encodedBits) - bestGain ) > 0.0001 ) {
+        printf( "\n*** Computed gain doesn't match! Panic! ***\n\n" );
+        computeGain( &bestC, bestUsage, true );
+        bestC.p1->debugPrint();
+        if( bestC.p1 != bestC.p2 )
+            bestC.p2->debugPrint();
+        for( auto&& p : *m_ct ) {
+            printf( "Pattern #%5d\t usage %d, %dx%d, codeword length %f (%s)\n",
+                p->label(), p->usage(), p->bounds().width, p->bounds().height, p->codeLength(), p->isActive() ? "active" : "inactive");
+        }
+        return false;
+    }
+
 
     for( auto it = m_ct->begin(); it != m_ct->end(); ) {
         Pattern* p =*it;
@@ -259,12 +287,12 @@ bool Encoder::encodeStep() {
             printf( "The decompositon of %d would result in %f bits gain.\n", p->label(), g );
             for( auto&& r : m_encoded ) {
                 if( r.pattern() == p ) {
-                    r.setMasked( true );
+                    r.setFlagged( true );
                     m_encoded.decompose( r );
                     ((Pattern*)p)->usage()--;
                 }
             }
-            m_encoded.eraseIfMasked( m_encoded.begin(), m_encoded.end() );
+            m_encoded.eraseIfFlagged( m_encoded.begin(), m_encoded.end() );
             p->setActive( false );
             decompositions++;
             double oldBits = m_encodedBits;
@@ -301,8 +329,8 @@ Encoder::mergePatterns( const Candidate* c ) {
     //for( auto it1 = m_encoded.begin(); it1 != m_encoded.end(); it1++ ) {
     for( int i =0; i < m_encoded.size(); i++ ) {
         const Region& r1 = m_encoded[i];//*it1;
-        if( r1.isMasked() ) continue;
-        //r1.setMasked( true );
+        if( r1.isFlagged() ) continue;
+        //r1.setFlagged( true );
 
         Pattern* p1 =r1.pattern();
         if( p1 != c->p1 ) continue;
@@ -310,7 +338,7 @@ Encoder::mergePatterns( const Candidate* c ) {
 //        for( auto it2 = m_encoded.begin(); it2 != m_encoded.end(); it2++ ) {
         for( int j=i+1; j < m_encoded.size(); j++ ) {
             const Region& r2 = m_encoded[j];//*it2;
-            if( r2.isMasked() ) continue;
+            if( r2.isFlagged() ) continue;
 
             //if( r2.pivot() < r1.pivot() ) continue;
             //if( r2.pivot().row() > r1.pivot().row() + p1->bounds().height ) break;
@@ -335,7 +363,7 @@ Encoder::mergePatterns( const Candidate* c ) {
             Coord2D pivot =r1.pivot();
 
             //m_encoded.erase( m_encoded.begin() + j );
-            m_encoded[j].setMasked( true ); // Mark for deletion
+            m_encoded[j].setFlagged( true ); // Mark for deletion
             m_encoded[i] = Region( p_union, pivot, v, false );
 
 
@@ -358,10 +386,10 @@ Encoder::mergePatterns( const Candidate* c ) {
         }
     }
 
-    m_encoded.eraseIfMasked( m_encoded.begin(), m_encoded.end() );
-    m_encoded.unmaskAll();
+    m_encoded.eraseIfFlagged( m_encoded.begin(), m_encoded.end() );
+    m_encoded.unflagAll();
 
-    printf( "Actual usage: %d\n", p_union->usage() );
+    printf( "Actual usage: %d, actual dimensions %d x %d\n", p_union->usage(), p_union->bounds().width, p_union->bounds().height );
     
 }
 
@@ -379,7 +407,7 @@ Encoder::updateCodeLengths() {
  * The return value is the difference in encoding side in bits.
  */
 double
-Encoder::computeGain( const Candidate* c, int usage ) {
+Encoder::computeGain( const Candidate* c, int usage, bool debugPrint ) {
 
     // New pivots can be sized differently because their size depends on the number of regions
     double newBitsPerPivot = m_encoded.bitsPerPivot();//RegionList::bitsPerPivot( totalInstances );
@@ -431,23 +459,29 @@ Encoder::computeGain( const Candidate* c, int usage ) {
             // Pattern p1 will be removed from the code table
             bits += p->bitsPerOffset() * p->size();
         }
+        else {
+            // Singleton patterns will remain in the code table
+            bits -= newCodeLength;
+        }
     }
 
     // Step 3. add the length from the union pattern p
-    const int width = std::max( 
-            std::abs(c->offset.col()) + c->p2->bounds().width + std::abs(c->p1->bounds().colMin),
-            c->p1->bounds().width );
-                   
-    const int height = std::max(
-            std::abs(c->offset.row()) + c->p2->bounds().height + std::abs(c->p1->bounds().rowMin),
-            c->p1->bounds().height );
-    //printf( "square size %d\n", width*height );
+    Pattern::BoundsT bounds = {
+        std::min( c->p1->bounds().rowMin, c->p2->bounds().rowMin + c->offset.row() ),
+        std::max( c->p1->bounds().rowMax, c->p2->bounds().rowMax + c->offset.row() ),
+        std::min( c->p1->bounds().colMin, c->p2->bounds().colMin + c->offset.col() ),
+        std::max( c->p1->bounds().colMax, c->p2->bounds().colMax + c->offset.col() ),
+        0, 0 };
+    bounds.computeDimensions();
+
+    if( debugPrint )
+        printf( "Estimated dimensions %d x %d\n", bounds.width, bounds.height );
 
     double p_codeLength = Pattern::codeLength( usage, totalInstances );
     // Instance set part
     bits -= (p_codeLength + newBitsPerPivot /*+ bitsPerVariant*/) * (usage);
     // Code table part
-    bits -= Pattern::bitsPerOffset( width, height, m_mat->base() ) * (c->p1->size() + c->p2->size()) + p_codeLength;
+    bits -= Pattern::bitsPerOffset( bounds.width, bounds.height, m_mat->base() ) * (c->p1->size() + c->p2->size()) + p_codeLength;
     
     return bits;
 }

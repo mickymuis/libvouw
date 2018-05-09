@@ -23,6 +23,6 @@ int main(int argc, char *argv[])
 
    // QStringList args = app.arguments();
     for( int i =1; i < argc; i++ )
-        window.importImage( argv[i], 2 );
+        window.importImage( argv[i], 8 );
     return app.exec();
 }

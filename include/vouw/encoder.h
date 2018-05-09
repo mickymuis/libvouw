@@ -67,7 +67,7 @@ class Encoder {
         
     private:
         Encoder( const Encoder& ) {}
-        double computeGain( const Candidate*, int usage );
+        double computeGain( const Candidate*, int usage, bool debugPrint =false );
         double computePruningGain( const Pattern* p );
         double computeDecompositionGain( const Pattern* p );
         void mergePatterns( const Candidate* );

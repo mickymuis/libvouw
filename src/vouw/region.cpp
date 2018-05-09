@@ -15,11 +15,12 @@ VOUW_NAMESPACE_BEGIN
 
 /* class Region implementation */
 
-Region::Region( Pattern* pattern, const Coord2D& pivot, const Variant* variant, bool masked ) : 
+Region::Region( Pattern* pattern, const Coord2D& pivot, const Variant* variant, bool flag ) : 
     m_pattern( pattern ),
     m_pivot( pivot ),
     m_variant( variant ),
-    m_mask( masked ? DirAll : DirNone )
+    //m_mask( masked ? DirAll : DirNone )
+    m_flagged( flag )
 {
 }
 
@@ -31,13 +32,13 @@ Region::apply( Matrix2D* mat ) {
 
 }
 
-void 
-Region::setMasked( bool b, DirT dir ) const { 
+/*void 
+Region::setFlagged( bool b, DirT dir ) const { 
     if( b )
         m_mask |= dir;
     else
         m_mask &= ~dir;
-}
+}*/
 
 bool operator<(const Region& r1, const Region& r2) {
     return r1.pivot().position() < r2.pivot().position();
@@ -78,9 +79,14 @@ void RegionList::updateCodeLengths() {
     m_bits += this->size() * m_stdBitsPerPivot;
 }
 
-void RegionList::unmaskAll() {
+void RegionList::clearBitmasks() {
     for( auto& r : *this ) {
-        r.m_mask = DirNone;
+        r.m_bitmask.clear();
+    }
+}
+void RegionList::unflagAll() {
+    for( auto& r : *this ) {
+        r.m_flagged = false;
     }
 }
 

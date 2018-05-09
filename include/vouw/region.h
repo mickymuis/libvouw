@@ -26,8 +26,9 @@ class RegionList : public std::vector<Region> {
         RegionList( const Matrix2D* mat );
         ~RegionList();
 
-        void unmaskAll();
-        inline void eraseIfMasked( RegionList::iterator begin, RegionList::iterator end ) { erase( std::remove_if( begin, end, region_is_masked ), end ); }
+        void clearBitmasks();
+        void unflagAll();
+        inline void eraseIfFlagged( RegionList::iterator begin, RegionList::iterator end ) { erase( std::remove_if( begin, end, region_is_masked ), end ); }
 
         void updateCodeLengths();
 
@@ -52,28 +53,31 @@ class RegionList : public std::vector<Region> {
 
 class Region {
     public:
-        Region( Pattern* pattern, const Coord2D& pivot, const Variant* variant, bool masked =false );
+        typedef std::vector<bool> BitmaskT;
+        Region( Pattern* pattern, const Coord2D& pivot, const Variant* variant, bool flag =false );
         Region();
         ~Region();
 
         void apply( Matrix2D* );
 
-        void setPattern( Pattern* p ) { m_pattern =p; }
-        Pattern* pattern() const { return m_pattern; }
+        inline void setPattern( Pattern* p ) { m_pattern =p; }
+        inline Pattern* pattern() const { return m_pattern; }
 
-        void setPivot( const Coord2D& c ) { m_pivot =c; }
-        Coord2D pivot() const { return m_pivot; }
+        inline void setPivot( const Coord2D& c ) { m_pivot =c; }
+        inline Coord2D pivot() const { return m_pivot; }
 
-        void setVariant( const Variant* v ) { m_variant =v; }
-        const Variant* variant() const { return m_variant; }
+        inline void setVariant( const Variant* v ) { m_variant =v; }
+        inline const Variant* variant() const { return m_variant; }
 
-        void setMasked( bool b, DirT dir = DirAll ) const;
-        bool isMasked( DirT dir = DirAll ) const { return m_mask & dir; }
-        int& mask() { return m_mask; }
+        inline void setFlagged( bool b ) const { m_flagged =b; }
+        inline bool isFlagged( DirT dir = DirAll ) const { return m_flagged; }
 
-        void setVariantBits( double b ) { m_variantBits =b; }
-        double& variantBits() { return m_variantBits; }
-        double variantBits() const { return m_variantBits; }
+        inline void bitmaskGrow( int size ) const { if( size > m_bitmask.size() ) m_bitmask.resize( size ); }
+        inline BitmaskT& bitmask() const { return m_bitmask; }
+
+        inline void setVariantBits( double b ) { m_variantBits =b; }
+        inline double& variantBits() { return m_variantBits; }
+        inline double variantBits() const { return m_variantBits; }
 
     private:
 
@@ -82,14 +86,15 @@ class Region {
 
         friend class RegionList;
         mutable const Variant* m_variant;
-        mutable int m_mask;
+        mutable BitmaskT m_bitmask;
+        mutable bool m_flagged;
         mutable double m_variantBits;
 };
 
 bool operator<(const Region&, const Region& );
 
 inline bool region_is_masked( const Region& r ) {
-    return r.isMasked();
+    return r.isFlagged();
 }
 
 VOUW_NAMESPACE_END

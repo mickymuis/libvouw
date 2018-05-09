@@ -39,6 +39,10 @@ class Pattern {
             int colMin;
             int colMax;
             int width, height;
+
+            inline void computeDimensions() { 
+                width = (colMax - colMin) + 1; height =(rowMax - rowMin) + 1;
+            }
         };
         struct CompositionT {
             const Pattern *p1, *p2;
@@ -81,12 +85,15 @@ class Pattern {
         void recomputeBounds();
         inline int squareSize() const { return m_bounds.width * m_bounds.height; }
 
-        bool isAdjacent( const Pattern& p, const OffsetT& offs ) const;
+        bool isAdjacent( /*const Pattern& p,*/const OffsetT& offs ) const;
+        bool isInside( const OffsetT& offs ) const;
 
         ListT& elements() { return m_elements; }
         const ListT& elements() const { return m_elements; }
 
         const CompositionT& composition() const { return m_composition; }
+
+        void debugPrint() const;
 
     private:
         void unionAdd( const Pattern& p1, const Pattern& p2, const OffsetT& );

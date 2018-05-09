@@ -9,6 +9,8 @@
 #include <vouw/equivalence.h>
 #include <cmath>
 #include <cassert>
+#include <cstdio>
+#include <cstring>
 
 VOUW_NAMESPACE_BEGIN
 
@@ -33,11 +35,11 @@ Pattern::OffsetT::translate( const OffsetT& o ) const {
 DirT
 Pattern::OffsetT::direction() const { 
     if( !row() )
-        //return col() ? DirHoriz : DirNone;
-        return (DirT)!!col(); 
+        return col() ? DirHoriz : DirNone;
+        //return (DirT)!!col(); 
     else
-        //return !col() ? DirVert : (col()<0 ? DirDiagN : DirDiag);
-        return (DirT)(2 << ((!!col()) << (col()<0)));
+        return !col() ? DirVert : (col()<0 ? DirDiagL : DirDiagR);
+        //return (DirT)(2 << ((!!col()) << (col()<0)));
 }
 
 int
@@ -154,15 +156,14 @@ Pattern::recomputeBounds() {
         m_bounds.colMin = std::min( m_bounds.colMin, elem.offset.col() );
         m_bounds.colMax = std::max( m_bounds.colMax, elem.offset.col() );
     }
-    m_bounds.width = (m_bounds.colMax - m_bounds.colMin) + 1;
-    m_bounds.height =(m_bounds.rowMax - m_bounds.rowMin) + 1;
+    m_bounds.computeDimensions();
 }
 
 /** Returns true if at least one element of @p + @offs is adjacent to an element of this pattern.
  *  Note that @offs is assumed to be 'positive' (i.e. translates @p either right and/or down)
  */
 bool 
-Pattern::isAdjacent( const Pattern& p, const OffsetT& offs ) const {
+Pattern::isAdjacent( /*const Pattern& p,*/ const OffsetT& offs ) const {
   /*  for( auto it = m_elements.rbegin(); it != m_elements.rend(); it++ ) {
         const ElementT& elem =*it;
         for( auto elem2 : p.m_elements ) {
@@ -175,6 +176,38 @@ Pattern::isAdjacent( const Pattern& p, const OffsetT& offs ) const {
     if( m_bounds.colMax+1 >= offs.col() && m_bounds.colMin-1 <= offs.col() && m_bounds.rowMax+1 >= offs.row() )
         return true;
     return false;
+}
+
+/** Returns true if @offs lies within the bounding box returned by bounds() */
+bool 
+Pattern::isInside( const OffsetT& offs ) const {
+    return offs.row() /*+ m_bounds.rowMin*/ <= m_bounds.rowMax
+        && offs.col() /*+ m_bounds.colMin*/ <= m_bounds.colMax
+        && offs.col() >= m_bounds.colMin;
+}
+
+void
+Pattern::debugPrint() const {
+    printf( "Pattern #%d, bounds {%d, %d, %d, %d, %d, %d}\n", label(),
+            bounds().rowMin, bounds().rowMax, bounds().colMin, bounds().colMax,
+            bounds().width, bounds().height );
+
+    const int n = bounds().width;
+    const int m = bounds().height;
+    char matrix[m][n];
+    memset( matrix, '.',  m*n );
+
+    for( auto&& elem : elements() ) {
+        OffsetT of = elem.offset;
+        matrix[of.row()-bounds().rowMin][of.col()-bounds().colMin] = '*';
+    }
+
+    for( int i =0; i < m; i++ ) {
+        for( int j =0; j < n; j++ ) {
+            printf( "%c", matrix[i][j] );
+        }
+        printf( "\n" );
+    }
 }
 
 void 

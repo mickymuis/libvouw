@@ -1,8 +1,8 @@
 /*
- * VOUW - Generating, encoding and pattern-mining of Reduce-Fold Cellular Automata
+ * VOUW - Spatial, compression-based pattern mining on matrices
  *
- * Micky Faas <micky@edukitty.org> 
- * Leiden Institute for Advanced Computer Science
+ * Micky Faas <micky@edukitty.org>
+ * (C) 2018, Leiden Institute for Advanced Computer Science
  */
 
 #include <vouw/encoder.h>
@@ -17,6 +17,16 @@
 #include <iostream>
 #include <iomanip>
 #include <cassert>
+#include <limits>
+
+/* Chrono library used to measure execution time of various functions */
+#include <chrono>
+
+typedef std::chrono::high_resolution_clock::time_point TimeVarT;
+
+#define duration(a) std::chrono::duration_cast<std::chrono::milliseconds>(a).count()
+#define timeNow() std::chrono::high_resolution_clock::now()
+/* End Chrono part */
 
 VOUW_NAMESPACE_BEGIN
 
@@ -84,7 +94,7 @@ Encoder::isValid() const {
     return m_es && m_mat && m_ct && m_encoded.size();
 }
 
-void Encoder::setFromMatrix( Matrix2D* mat ) {
+void Encoder::setFromMatrix( Matrix2D* mat, bool useTabu ) {
     //std::map<Matrix2D::ElementT,std::pair<Pattern*,Variant>> smap; // Singleton equivalence mapping
 
     clear();
@@ -128,9 +138,29 @@ void Encoder::setFromMatrix( Matrix2D* mat ) {
 
             p->usage()++;
             m_encoded.emplace_back( p, c, v, false );
+
+            // Update the probability mass function so we know the distribution of values later on
+            m_massfunc.increment( elem );
         }
     }
     std::cout << "Added " << m_ct->countIfActive() << " patterns in " << m_encoded.size() << " regions." << std::endl;
+
+    if( useTabu ) {
+        /* If tabu is enabled, we first find the value with the highest frequency */
+        MassFunction::CountT freq =0;
+        MassFunction::ElementT elem;
+        for( auto pair : m_massfunc.elements() ) {
+            if( pair.second > freq ) {
+                freq =pair.second;
+                elem =pair.first;
+            }
+        }
+        /* We set the corresponding pattern as tabu and remove the value from the mass function */
+        m_smap[elem].first->setTabu( true );
+        //m_massfunc.setCount( elem, 0 );
+        printf( "Singleton with value %d is set as tabu.\n", elem );
+    }
+
     m_priorBits =updateCodeLengths();
 }
 
@@ -149,28 +179,30 @@ void Encoder::clear() {
         delete m_ct;
     m_encoded.clear();
     m_smap.clear();
+    m_massfunc.clear();
 
     m_priorBits =0.0;
     m_isEncoded =false;
     m_lastLabel =0;
+    m_decompositions =0;
 }
 
 bool Encoder::encodeStep() { 
     std::unordered_map<Candidate,int,CandidateHash> candidates;
+    static int max_coeff =0;
+    static int iteration =0; iteration ++;
 
     int progress =0, total = m_encoded.size();
-    std::cerr << "Finding candidates ... ";
+    fprintf( stderr, "\n *** Iteration %d, finding candidates ... ", iteration );
 
-    static int max_coeff =0;
+    TimeVarT t1 = timeNow();
 
-    //for( auto&& r1 : m_encoded ) {
     for( int i =0; i < m_encoded.size(); i++ ) {
         const Region& r1 = m_encoded[i];
-       // if( r1.isFlagged() ) continue;
-       // r1.setFlagged( true );
 
         Pattern* p1 =r1.pattern();
         assert( p1->isActive() );
+        if( p1->isTabu() ) continue;
 
         if( progress++ % (total/10+1) == 0 )
           std::cerr << progress*100/total << "% ";
@@ -179,16 +211,15 @@ bool Encoder::encodeStep() {
 
         for( int j =i+1; j < m_encoded.size(); j++ ) {
             const Region& r2 = m_encoded[j];
-//        for( auto&& r2 : m_encoded ) {
-         //   if( r2.isFlagged() ) continue;
 
-            //if( r2.pivot() < r1.pivot() ) break;
             Pattern* p2 =r2.pattern();
             if( r2.pivot().row() > r1.pivot().row() + p1->bounds().height ) break;
+            if( p2->isTabu() ) continue;
 
             Pattern::OffsetT offset( r1.pivot(), r2.pivot() );
-            if( !p1->isAdjacent( offset ) ) continue;
+            if( !p1->isAdjacent( *p2, offset ) ) continue;
             if( p1 == p2 ) {
+                //continue;
                 overlap_coefficient = (offset.col() - p1->bounds().colMin + p2->bounds().width) + 
                     (offset.row() - p1->bounds().rowMin) * (p1->bounds().width + p2->bounds().width + 1);
 
@@ -203,7 +234,6 @@ bool Encoder::encodeStep() {
             Candidate c = { p1, p2, (Variant*)r1.variant(), (Variant*)r2.variant(), offset };
             candidates[c]++;
 
-            //fprintf( stderr, "%d + %d (%d,%d) @ (%d,%d)\n", p1->label(),p2->label(),offset.row(),offset.col(),r1.pivot().row(),r1.pivot().col());
             if( p1 == p2 ) {
                 r2.bitmaskGrow( overlap_coefficient+1 );
                 r2.bitmask()[overlap_coefficient] = true;
@@ -213,16 +243,27 @@ bool Encoder::encodeStep() {
     }
 
     std::cerr << std::endl << candidates.size() << " canditates found. Bucket count: " << candidates.bucket_count() << std::endl;
-
     m_encoded.clearBitmasks();
 
+    TimeVarT t2 = timeNow();
+    std::cerr << "Elapsed time: " << duration( t2-t1 ) << " ms."<< std::endl;
+    fprintf( stderr, "Computing gain... " );
+
     int bestUsage =0;
-    double bestGain =0.0;
+    double bestGain =-std::numeric_limits<double>::infinity();
     Candidate bestC;
 
     for( auto&& pair : candidates ) {
+       // if( pair.second < bestUsage-1 ) continue; // Extra greedy selection by usage
         const Candidate& c = pair.first;
         double gain = computeGain( &c, pair.second );
+        /*fprintf( stderr, "Candidate: %d + %d (%d,%d), usage %d, gain %f\n",
+                c.p1->label(),
+                c.p2->label(),
+                c.offset.row(),
+                c.offset.col(),
+                pair.second,
+                gain );*/
         if( gain >= bestGain ) {
             bestGain =gain;
             bestC =c;
@@ -230,6 +271,8 @@ bool Encoder::encodeStep() {
         }
     }
 
+    TimeVarT t3 = timeNow();
+    std::cerr << "Elapsed time: " << duration( t3-t2 ) << " ms."<< std::endl;
     printf( "Estimated gain %f, estimated usage: %d\n", bestGain, bestUsage );
     static int decompositions =0;
     
@@ -242,26 +285,30 @@ bool Encoder::encodeStep() {
                 printf( "Pattern #%5d\t usage %d, %dx%d, codeword length %f\n",
                     p->label(), p->usage(), p->bounds().width, p->bounds().height, p->codeLength() );
         }
-        printf( "Total number of succesfull decompositions: %d\n", decompositions );
+        printf( "Total number of succesfull decompositions: %d\n", m_decompositions );
         printf( "Biggest overlap coefficient: %d\n", max_coeff );
 
         return false;
     }
-    printf( "Merging '%d' and '%d' (%d,%d)\n", 
+    
+    fprintf( stderr, "Merging '%d' and '%d' (%d,%d)...", 
             bestC.p1->label(), bestC.p2->label(), bestC.offset.row(), bestC.offset.col());
 
 
     mergePatterns( &bestC );
 
-    prunePattern( bestC.p1 );
+    prunePattern( bestC.p1, true );
     if( bestC.p1 != bestC.p2 )
-        prunePattern( bestC.p2 );
+        prunePattern( bestC.p2, true );
 
     double oldBits = m_encodedBits;
 
     updateCodeLengths();
     
+    TimeVarT t4 = timeNow();
+    std::cerr << "Elapsed time: " << duration( t4-t3 ) << " ms."<< std::endl;
     printf( "Actual gain: %f\n", oldBits - m_encodedBits );
+    fprintf( stderr, "Computing decompositions... " );
 
     if( std::abs((oldBits - m_encodedBits) - bestGain ) > 0.0001 ) {
         printf( "\n*** Computed gain doesn't match! Panic! ***\n\n" );
@@ -276,31 +323,14 @@ bool Encoder::encodeStep() {
         return false;
     }
 
-
-    for( auto it = m_ct->begin(); it != m_ct->end(); ) {
-        Pattern* p =*it;
-        it++;
-        //prunePattern( p, false );
-        if( !p->isActive() || p->size() == 1 ) continue;
-        double g =computeDecompositionGain( p );
-        if( g >= 0.0 ) {
-            printf( "The decompositon of %d would result in %f bits gain.\n", p->label(), g );
-            for( auto&& r : m_encoded ) {
-                if( r.pattern() == p ) {
-                    r.setFlagged( true );
-                    m_encoded.decompose( r );
-                    ((Pattern*)p)->usage()--;
-                }
-            }
-            m_encoded.eraseIfFlagged( m_encoded.begin(), m_encoded.end() );
-            p->setActive( false );
-            decompositions++;
-            double oldBits = m_encodedBits;
-            updateCodeLengths();
-            printf( "Actual decomposition gain: %f\n", oldBits - m_encodedBits );
-        }
-    }
-    std::sort( m_encoded.begin(), m_encoded.end() );
+    /* Run prunePattern with decomposition */
+    prunePattern( bestC.p1, false );
+    if( bestC.p1 != bestC.p2 )
+        prunePattern( bestC.p2, false );
+    
+    TimeVarT t5 = timeNow();
+    std::cerr << "Elapsed time: " << duration( t5-t4 ) << " ms."<< std::endl;
+    std::cerr << "Total elapsed time: " << duration( t5-t1 ) << " ms."<< std::endl;
 
     std::cerr << std::flush;
     std::cout << std::flush;
@@ -326,7 +356,8 @@ Encoder::mergePatterns( const Candidate* c ) {
     p_union->setLabel( m_lastLabel++ );
     m_ct->push_back( p_union );
 
-    //for( auto it1 = m_encoded.begin(); it1 != m_encoded.end(); it1++ ) {
+    //assert( p_union->isCanonical() ); // Sanity check, creates a bit of overhead
+
     for( int i =0; i < m_encoded.size(); i++ ) {
         const Region& r1 = m_encoded[i];//*it1;
         if( r1.isFlagged() ) continue;
@@ -335,14 +366,11 @@ Encoder::mergePatterns( const Candidate* c ) {
         Pattern* p1 =r1.pattern();
         if( p1 != c->p1 ) continue;
 
-//        for( auto it2 = m_encoded.begin(); it2 != m_encoded.end(); it2++ ) {
         for( int j=i+1; j < m_encoded.size(); j++ ) {
             const Region& r2 = m_encoded[j];//*it2;
+            if( r2.pivot().row() > r1.pivot().row() + p1->bounds().height ) break;
             if( r2.isFlagged() ) continue;
 
-            //if( r2.pivot() < r1.pivot() ) continue;
-            //if( r2.pivot().row() > r1.pivot().row() + p1->bounds().height ) break;
-            
             Pattern* p2 =r2.pattern();
 
             if( p2 != c->p2 ) continue;
@@ -351,7 +379,6 @@ Encoder::mergePatterns( const Candidate* c ) {
 
             if( offset != c->offset ) continue;
             
-            //fprintf( stderr, "%d + %d (%d,%d) @ (%d,%d)\n", p1->label(),p2->label(),offset.row(),offset.col(),r1.pivot().row(),r1.pivot().col());
             Variant* v;
             if( r1.variant()->hash() != c->v1->hash() || r2.variant()->hash() != c->v2->hash() ) {
                 v =m_es->makeVariant( *p_union, *p1, *p2, *r1.variant(), *r2.variant(), offset );
@@ -362,30 +389,16 @@ Encoder::mergePatterns( const Candidate* c ) {
 
             Coord2D pivot =r1.pivot();
 
-            //m_encoded.erase( m_encoded.begin() + j );
             m_encoded[j].setFlagged( true ); // Mark for deletion
             m_encoded[i] = Region( p_union, pivot, v, false );
 
-
-/*            auto temp = ++it1;
-            if( temp == it2 ) {
-                m_encoded.erase( it1 );
-                it1 = ++temp;
-                m_encoded.erase( it2 );
-                it2 = ++temp;
-            } else {
-                m_encoded.erase( it1++ );
-                m_encoded.erase( it2++ );
-            }*/
-            
-            //m_encoded.emplace_back( p_union, pivot, v, true );
             p_union->usage()++;
             p1->usage()--;
             p2->usage()--;
             break;
         }
     }
-
+    
     m_encoded.eraseIfFlagged( m_encoded.begin(), m_encoded.end() );
     m_encoded.unflagAll();
 
@@ -395,9 +408,24 @@ Encoder::mergePatterns( const Candidate* c ) {
 
 double
 Encoder::updateCodeLengths() {
-    m_ct->updateCodeLengths( m_encoded.size() );
+    m_ct->updateCodeLengths( m_encoded.size(), m_massfunc );
     m_encoded.updateCodeLengths();
     return (m_encodedBits =m_ct->totalLength() + m_encoded.totalLength());
+}
+
+double
+Encoder::computeCandidateEntryLength( const Candidate* c ) {
+    Pattern::BoundsT bounds = {
+        std::min( c->p1->bounds().rowMin, c->p2->bounds().rowMin + c->offset.row() ),
+        std::max( c->p1->bounds().rowMax, c->p2->bounds().rowMax + c->offset.row() ),
+        std::min( c->p1->bounds().colMin, c->p2->bounds().colMin + c->offset.col() ),
+        std::max( c->p1->bounds().colMax, c->p2->bounds().colMax + c->offset.col() ),
+        0, 0 };
+    bounds.computeDimensions();
+
+    double bits = c->p1->entryValuesLength() + c->p2->entryValuesLength();
+    bits += Pattern::entryOffsetsLength( bounds.width, bounds.height, c->p1->size() + c->p2->size() );
+    return bits;
 }
 
 /*
@@ -425,14 +453,17 @@ Encoder::computeGain( const Candidate* c, int usage, bool debugPrint ) {
 
     //printf( "(%d,%d) new model size %d (was %d) ", c->offset.row(), c->offset.col(), newModelSize, m_ct->countIfActive() );
 
+    // The new size of the instance set is determined by the predicted usage of the union pattern
     const int totalInstances = m_encoded.size() - usage;
+
+    // For the instance set to decode correctly, its cardinality need to be known in advance
+    bits += uintCodeLength( m_encoded.size() ) - uintCodeLength( totalInstances );
+
     // Recompute code table and region codewords based on the new model's size
-    for( auto&& p : *m_ct ) {
-        if( p->isActive() ) {
-            bits += p->codeLength() * (p->usage() + 1);
-            bits -= Pattern::codeLength( p->usage(), totalInstances ) * (p->usage() + 1);
-        }
-    }
+    // We use the fact that -log(a/b) = log(b)-log(a)
+    // Here we subtract the log(b) component and replace it with log(b+k)
+    const int f =m_encoded.size()+m_ct->countIfActive();
+    bits += f * (log2( m_encoded.size() ) - log2( totalInstances ));
 
    // const int  totalInstances = m_mat->count();
 
@@ -455,168 +486,145 @@ Encoder::computeGain( const Candidate* c, int usage, bool debugPrint ) {
             // Code table part
             bits -= newCodeLength;
         }
-        else if( p->size() > 1 ) { 
+        else /*if( p->size() > 1 )*/ { 
             // Pattern p1 will be removed from the code table
-            bits += p->bitsPerOffset() * p->size();
+            bits += p->entryLength();
         }
-        else {
+/*        else {
             // Singleton patterns will remain in the code table
             bits -= newCodeLength;
-        }
+        }*/
     }
 
     // Step 3. add the length from the union pattern p
-    Pattern::BoundsT bounds = {
-        std::min( c->p1->bounds().rowMin, c->p2->bounds().rowMin + c->offset.row() ),
-        std::max( c->p1->bounds().rowMax, c->p2->bounds().rowMax + c->offset.row() ),
-        std::min( c->p1->bounds().colMin, c->p2->bounds().colMin + c->offset.col() ),
-        std::max( c->p1->bounds().colMax, c->p2->bounds().colMax + c->offset.col() ),
-        0, 0 };
-    bounds.computeDimensions();
-
-    if( debugPrint )
-        printf( "Estimated dimensions %d x %d\n", bounds.width, bounds.height );
-
     double p_codeLength = Pattern::codeLength( usage, totalInstances );
     // Instance set part
-    bits -= (p_codeLength + newBitsPerPivot /*+ bitsPerVariant*/) * (usage);
+    bits -= (p_codeLength + newBitsPerPivot) * (usage);
     // Code table part
-    bits -= Pattern::bitsPerOffset( bounds.width, bounds.height, m_mat->base() ) * (c->p1->size() + c->p2->size()) + p_codeLength;
+    bits -= p_codeLength + computeCandidateEntryLength( c );
+
+/*    Pattern p_union( *c->p1, *c->v1, *c->p2, *c->v2, c->offset );
+    p_union.setUsage( usage );
+    bits -= (p_union.updateCodeLength( totalInstances ) + newBitsPerPivot) * usage;
+    bits -= p_union.updateEntryLength( m_mat->base() ) + p_union.codeLength();*/
+    
     
     return bits;
 }
 
-double
-Encoder::computePruningGain( const Pattern* p ) {
-
-    // New pivots can be sized differently because their size depends on the number of regions
-    const int totalInstances = m_encoded.size() + p->usage() * (p->size() - 1);
-    double newBitsPerPivot = m_encoded.bitsPerPivot();//RegionList::bitsPerPivot( totalInstances );
-    double bits = m_encoded.size() * (m_encoded.bitsPerPivot() - newBitsPerPivot);
-
-    // Compute the total size of the new model
-    int newModelSize = m_ct->countIfActive() - 1;
-
-    // Recompute code table and region codewords based on the new model's size
-    for( auto&& p0 : *m_ct ) {
-        if( p0->isActive() ) {
-            bits += p0->codeLength() * (p0->usage() + 1);
-            bits -= Pattern::codeLength( p0->usage(), totalInstances ) * (p0->usage() + 1);
-        }
-    }
-
-    // Step 1. remove the bits of the regions and code table codeword of @p completely
-    double codeLength =Pattern::codeLength( p->usage(), totalInstances );
-    // Instance set part
-    bits += (codeLength + newBitsPerPivot /*c->p1->bitsPerVariant() +*/) * p->usage();
-    // Code table part
-    bits += codeLength + p->bitsPerOffset() * p->size();
-    
-    // Step 2. Replace the instances of @p by singleton patterns
-    PatternUsageMapT singleton; // Mapping of increased number of instances to singleton patterns
-    for( auto&& elem : p->elements() ) {
-        Pattern* ps = m_smap[elem.value].first; // Singleton pattern matching elem
-        assert( ps );
-        singleton[ps]++; // Increment usage
-    }
-
-    // Step 3. Update the singleton patterns depending on their new usages
-    for( auto&& pair : singleton ) {
-        Pattern* ps = pair.first;
-        int newUsage = ps->usage() + p->usage() * pair.second;
-        double newCodeLength = Pattern::codeLength( newUsage, totalInstances );
-
-        // Update the code table
-        bits += ps->codeLength() - newCodeLength;
-
-        // Add the new instances
-        bits += (ps->codeLength() + newBitsPerPivot) * ps->usage();
-        bits -= (newCodeLength + newBitsPerPivot) * newUsage;
-    }
-    return bits;
-}
 double 
-Encoder::computeDecompositionGain( const Pattern* p ) {
+Encoder::computeDecompositionGain( const Pattern* p, bool debugPrint ) {
 
     // We use a recursive stateless lambda to compute the patterns
     // that make the composition of @p
     PatternUsageMapT decomp;
-    static int (*decompose)(const Pattern*, PatternUsageMapT&) =
-        [](const Pattern* p, PatternUsageMapT& new_usage)->int {
+    static bool (*decompose)(const Pattern*, PatternUsageMapT&, int&) =
+        [](const Pattern* p, PatternUsageMapT& new_usage, int& n)->bool {
             const Pattern::CompositionT& comp = p->composition();
-            if( !comp.p1 || !comp.p2 ) return 0;
+            if( !comp.p1 || !comp.p2 ) return false;
 
-            int res =0;
             const Pattern* p_new[2] = { comp.p1, comp.p2 };
             for( int i =0; i < 2; i++ ) {
                 if( p_new[i]->isActive() ) {
                     new_usage[(Pattern*)p_new[i]]++;
-                    res++;
+                    n++;
                 } else {
-                    res +=decompose( p_new[i], new_usage );
+                    if (!decompose( p_new[i], new_usage, n ) ) return false;
                 }
             }
-            return res;
+            return true;
         };
 
-    int n =decompose( p, decomp );
-    if( !n ) return 0.0;
+    int n =0;
+    if( !decompose( p, decomp, n ) || !n ) return 0.0;
 
     // New pivots can be sized differently because their size depends on the number of regions
     const int totalInstances = m_encoded.size() + p->usage() * (n-1);
     double newBitsPerPivot = m_encoded.bitsPerPivot();//RegionList::bitsPerPivot( totalInstances );
     double bits = m_encoded.size() * (m_encoded.bitsPerPivot() - newBitsPerPivot);
-
-    // Compute the total size of the new model
-    int newModelSize = m_ct->countIfActive() - 1;
+    
+    // For the instance set to decode correctly, its cardinality need to be known in advance
+    bits += uintCodeLength( m_encoded.size() ) - uintCodeLength( totalInstances );
 
     // Recompute code table and region codewords based on the new model's size
-    for( auto&& p0 : *m_ct ) {
-        if( p0->isActive() ) {
-            bits += p0->codeLength() * (p0->usage() + 1);
-            bits -= Pattern::codeLength( p0->usage(), totalInstances ) * (p0->usage() + 1);
-        }
-    }
+    // We use the fact that -log(a/b) = log(b)-log(a)
+    // Here we subtract the log(b) component and replace it with log(b+k)
+    const int f =m_encoded.size()+m_ct->countIfActive();
+    bits += f * log2( m_encoded.size() );
+    bits -= f * log2( totalInstances );
 
     // Step 1. remove the bits of the regions and code table codeword of @p completely
     double codeLength =Pattern::codeLength( p->usage(), totalInstances );
     // Instance set part
     bits += (codeLength + newBitsPerPivot /*c->p1->bitsPerVariant() +*/) * p->usage();
     // Code table part
-    bits += codeLength + p->bitsPerOffset() * p->size();
+    bits += codeLength + p->entryLength();
     
     // Step 2. Replace the instances of @p by its decomposition
     for( auto&& pair : decomp ) {
         Pattern* ps = pair.first;
         int newUsage = ps->usage() + p->usage() * pair.second;
+        double oldCodeLength = Pattern::codeLength( ps->usage(), totalInstances );
         double newCodeLength = Pattern::codeLength( newUsage, totalInstances );
 
+        if( debugPrint )
+            fprintf( stderr, "--- #%d usage +%d * %d\n", ps->label(), pair.second, p->usage() );
+
         // Update the code table
-        bits += ps->codeLength() - newCodeLength;
+        bits += oldCodeLength - newCodeLength;
 
         // Add the new instances
-        bits += (ps->codeLength() + newBitsPerPivot) * ps->usage();
+        bits += (oldCodeLength + newBitsPerPivot) * ps->usage();
         bits -= (newCodeLength + newBitsPerPivot) * newUsage;
     }
     return bits;
 }
 
 void
-Encoder::prunePattern( Pattern* p, bool onlySingleton ) {
-    if( p->size() == 1 ) return;
+Encoder::prunePattern( Pattern* p, bool onlyZeroPattern ) {
+    //if( p->size() == 1 ) return;
     if( p->usage() == 0 ) {
         //m_ct->remove( p );
         //delete p;
         p->setActive( false );
     }
-    if( onlySingleton ) return;
+    if( onlyZeroPattern ) return;
 
+    double g =computeDecompositionGain( p );
+    if( g > 0.0 ) {
+        printf( "The decompositon of %d would result in %f bits gain.\n", p->label(), g );
+        for( auto&& r : m_encoded ) {
+            if( r.pattern() == p ) {
+                r.setFlagged( true );
+                m_encoded.decompose( r );
+                ((Pattern*)p)->usage()--;
+            }
+        }
+        m_encoded.eraseIfFlagged( m_encoded.begin(), m_encoded.end() );
+        p->setActive( false );
+        m_decompositions++;
+        double oldBits = m_encodedBits;
+        double oldIBits = m_encoded.totalLength();
+        double oldCBits = m_ct->totalLength();
+        updateCodeLengths();
+        printf( "Actual decomposition gain: %f (instance set %f, code table %f)\n", 
+                oldBits - m_encodedBits, oldIBits - m_encoded.totalLength() , oldCBits - m_ct->totalLength() );
+        if( std::abs( g - (oldBits-m_encodedBits) ) > 0.0001 ) {
+            printf( "\n*** Computed decomposition gain doesn't match! Panic! ***\n\n" );
+        }
+        /* Decompositions may have changed the order of the instance set */
+        std::sort( m_encoded.begin(), m_encoded.end() );
+    }
+
+    return;
+ 
+#if 0 // Old code for pruning to singleton    
     // The complex case for non-zero usage patterns
     // Calculate gain first to see if we have to do anything
     double gain =computePruningGain( p );
     if( gain < 0.0 ) return;
     
-    fprintf( stderr, "Pruning pattern %d would result in a gain of %f bits.\n", p->label(), gain );
+    fprintf( stderr, "*\n*\n*Pruning pattern %d would result in a gain of %f bits.\n", p->label(), gain );
     
     // Find every region in which @p occurs and replace it with singletons
     const std::size_t currentInstances =m_encoded.size();
@@ -652,7 +660,58 @@ Encoder::prunePattern( Pattern* p, bool onlySingleton ) {
     updateCodeLengths();
     
     fprintf( stderr, "Actual pruning gain: %f\n", oldBits - m_encodedBits );
-
+#endif
 }
 
+#if  0
+double
+Encoder::computePruningGain( const Pattern* p ) {
+
+    // New pivots can be sized differently because their size depends on the number of regions
+    const int totalInstances = m_encoded.size() + p->usage() * (p->size() - 1);
+    double newBitsPerPivot = m_encoded.bitsPerPivot();//RegionList::bitsPerPivot( totalInstances );
+    double bits = m_encoded.size() * (m_encoded.bitsPerPivot() - newBitsPerPivot);
+
+    // Recompute code table and region codewords based on the new model's size
+    // We use the fact that -log(a/b) = log(b)-log(a)
+    // Here we subtract the log(b) component and replace it with log(b+k)
+    const int f =m_encoded.size()+m_ct->countIfActive();
+    bits += f * log2( m_encoded.size() );
+    bits -= f * log2( totalInstances );
+
+    // For the instance set to decode correctly, its cardinality need to be known in advance
+    bits += uintCodeLength( m_encoded.size() ) - uintCodeLength( totalInstances );
+    
+    // Step 1. remove the bits of the regions and code table codeword of @p completely
+    double codeLength =Pattern::codeLength( p->usage(), totalInstances );
+    // Instance set part
+    bits += (codeLength + newBitsPerPivot /*c->p1->bitsPerVariant() +*/) * p->usage();
+    // Code table part
+    bits += codeLength + p->entryLength();
+    
+    // Step 2. Replace the instances of @p by singleton patterns
+    PatternUsageMapT singleton; // Mapping of increased number of instances to singleton patterns
+    for( auto&& elem : p->elements() ) {
+        Pattern* ps = m_smap[elem.value].first; // Singleton pattern matching elem
+        assert( ps );
+        singleton[ps]++; // Increment usage
+    }
+
+    // Step 3. Update the singleton patterns depending on their new usages
+    for( auto&& pair : singleton ) {
+        Pattern* ps = pair.first;
+        int newUsage = ps->usage() + p->usage() * pair.second;
+        double oldCodeLength = Pattern::codeLength( ps->usage(), totalInstances );
+        double newCodeLength = Pattern::codeLength( newUsage, totalInstances );
+
+        // Update the code table
+        bits += oldCodeLength - newCodeLength;
+
+        // Add the new instances
+        bits += (oldCodeLength + newBitsPerPivot) * ps->usage();
+        bits -= (newCodeLength + newBitsPerPivot) * newUsage;
+    }
+    return bits;
+}
+#endif
 VOUW_NAMESPACE_END

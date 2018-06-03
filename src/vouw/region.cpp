@@ -10,6 +10,7 @@
 #include <vouw/matrix.h>
 #include <vouw/equivalence.h>
 #include <cmath>
+#include <cstdio>
 
 VOUW_NAMESPACE_BEGIN
 
@@ -48,13 +49,13 @@ bool operator<(const Region& r1, const Region& r2) {
 
 RegionList::RegionList( int matWidth, int matHeight, int matBase) : 
     std::vector<Region>(), 
-    m_bits( 0.0 ) {
+    m_bits( 0.0 ), m_stdBitsPerPivot( 1.0 ) {
     setMatrixSize( matWidth, matHeight, matBase );
 }
 
 RegionList::RegionList( const Matrix2D* mat ) : 
     std::vector<Region>(), 
-    m_bits( 0.0 ) {
+    m_bits( 0.0 ), m_stdBitsPerPivot( 1.0 ) {
     setMatrixSize( mat->width(), mat->height(), mat->base() );
 }
 
@@ -68,7 +69,7 @@ RegionList::bitsPerPivot( std::size_t pivotCount ) {
 void RegionList::updateCodeLengths() {
 
   //  m_stdBitsPerPivot = bitsPerPivot( this->size() );
-    m_bits =0.0;
+    m_bits =uintCodeLength( this->size() );
 
     for( auto& r : *this ) {
         Pattern* p =r.pattern();
@@ -95,9 +96,10 @@ RegionList::setMatrixSize( int width, int height, int base ) {
     m_width =width; m_height =height; m_base =base;
     m_nodeCount =width*height;
 
-    if( width>0 && height>0 ) {
+    /*if( width>0 && height>0 ) {
         m_stdBitsPerPivot = log2( (double)m_nodeCount );
-    }
+    }*/
+
 }
 
 /** Decomposes region @r into regions r1 and r2, defined by the composition on @r.pattern()

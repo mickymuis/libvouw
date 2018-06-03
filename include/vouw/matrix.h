@@ -24,6 +24,8 @@ class Coord2D {
         void setCol( int col) { m_col =col; }
         int col() const { return m_col; }
 
+        bool isZero() { return m_row == 0 && m_col == 0; }
+
         void setRowLength( int rowLength ) { m_rowLength = rowLength; } 
         int rowLength() const { return m_rowLength; }
 

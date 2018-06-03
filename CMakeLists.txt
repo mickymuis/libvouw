@@ -15,12 +15,15 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O3")
 
 
 add_library (vouw STATIC
+    src/vouw/vouw.cpp
     src/vouw/matrix.cpp
     src/vouw/pattern.cpp
     src/vouw/region.cpp
     src/vouw/codetable.cpp
     src/vouw/equivalence.cpp
-    src/vouw/encoder.cpp)
+    src/vouw/massfunction.cpp
+    src/vouw/encoder.cpp
+    src/vouw/noisy_equivalence.cpp)
 
 #add_executable (image-vouw 
 #    src/image-vouw/main.c)

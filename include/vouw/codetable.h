@@ -14,6 +14,7 @@ VOUW_NAMESPACE_BEGIN
 
 class Pattern;
 class Matrix2D;
+class MassFunction;
 
 inline bool pattern_is_active( const Pattern* );
 
@@ -23,7 +24,7 @@ class CodeTable : public std::list<Pattern*> {
         CodeTable( const Matrix2D* mat );
         ~CodeTable();
 
-        void updateCodeLengths( int totalInstances );
+        void updateCodeLengths( int totalInstances, const MassFunction& distribution );
         void sortBySizeDesc();
 
         inline int countIfActive() const { return std::count_if( begin(), end(), pattern_is_active ); }

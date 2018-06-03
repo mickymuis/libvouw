@@ -8,6 +8,7 @@
 #include <vouw/codetable.h>
 #include <vouw/pattern.h>
 #include <vouw/matrix.h>
+#include <vouw/massfunction.h>
 #include <math.h>
 
 VOUW_NAMESPACE_BEGIN
@@ -28,14 +29,17 @@ CodeTable::~CodeTable() {
     for( auto&& p : *this ) delete p;
 }
 
-void CodeTable::updateCodeLengths( int totalInstances ) {
+void CodeTable::updateCodeLengths( int totalInstances, const MassFunction& distr ) {
 
     m_bits =0.0;
 
     for( auto p : *this ) {
         if( p->isActive() ) {
             m_bits += p->updateCodeLength( totalInstances );
-            m_bits += p->size() * p->updateBitsPerOffset( m_base );
+            if( p->entryLength() != 0.0 )
+                m_bits += p->entryLength();
+            else
+                m_bits += p->updateEntryLength( distr );
         } else
             p->updateCodeLength( totalInstances );
         //m_bits += p->size() * m_stdBitsPerOffset;

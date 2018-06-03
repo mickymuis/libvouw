@@ -7,6 +7,7 @@
 
 #include <vouw/pattern.h>
 #include <vouw/equivalence.h>
+#include <vouw/massfunction.h>
 #include <cmath>
 #include <cassert>
 #include <cstdio>
@@ -52,8 +53,8 @@ Pattern::OffsetT::position() const {
 Pattern::Pattern()
     : m_usage( 0 ),
     m_label( 0 ),
-    m_codeBits( 0 ), m_bitsPerOffset( 0 ),
-    m_active( true ) {
+    m_codeBits( 0 ), m_entryOffsetsBits( 0 ), m_entryValuesBits( 0 ),
+    m_active( true ), m_tabu( false ) {
     m_bounds ={};
     m_composition = { 0, 0, 0, 0, OffsetT() };
 }
@@ -61,12 +62,14 @@ Pattern::Pattern()
 Pattern::Pattern( const Pattern& p ) {
     m_label =p.m_label;
     m_codeBits =p.m_codeBits;
-    m_bitsPerOffset = p.m_bitsPerOffset;
+    m_entryValuesBits = p.m_entryValuesBits;
+    m_entryOffsetsBits = p.m_entryOffsetsBits;
     m_bounds =p.m_bounds;
     m_usage =p.m_usage;
     m_elements =p.m_elements;
     m_rowLength =p.m_rowLength;
     m_active = p.m_active;
+    m_tabu = p.m_tabu;
     m_composition = p.m_composition;
 }
 
@@ -74,8 +77,8 @@ Pattern::Pattern( const Matrix2D::ElementT& value, int rowLength )
     : m_usage( 0 ),
     m_label( 0 ),
     m_rowLength( rowLength ),
-    m_codeBits( 0 ), m_bitsPerOffset( 0 ),
-    m_active( true ) {
+    m_codeBits( 0 ), m_entryOffsetsBits( 0 ), m_entryValuesBits( 0 ),
+    m_active( true ), m_tabu( false ) {
     m_bounds ={ 0,0,0,0,1,1 };
     m_composition = { 0, 0, 0, 0, OffsetT() };
     m_elements.push_back( { OffsetT(0,0,rowLength), value } );
@@ -84,8 +87,8 @@ Pattern::Pattern( const Matrix2D::ElementT& value, int rowLength )
 Pattern::Pattern( const Pattern& p1, const Pattern& p2, const OffsetT& offs )
     : m_usage( 0 ),
     m_label( 0 ),
-    m_codeBits( 0 ), m_bitsPerOffset( 0 ),
-    m_active( true ) {
+    m_codeBits( 0 ), m_entryOffsetsBits( 0 ), m_entryValuesBits( 0 ),
+    m_active( true ), m_tabu( false ) {
     m_rowLength = p1.rowLength();
     unionAdd( p1, p2, offs );
     recomputeBounds();
@@ -95,8 +98,8 @@ Pattern::Pattern( const Pattern& p1, const Pattern& p2, const OffsetT& offs )
 Pattern::Pattern( const Pattern& p1, const Variant& v1, const Pattern& p2, const Variant& v2, const OffsetT& offs )
     : m_usage( 0 ),
     m_label( 0 ),
-    m_codeBits( 0 ), m_bitsPerOffset( 0 ),
-    m_active( true ) {
+    m_codeBits( 0 ), m_entryOffsetsBits( 0 ), m_entryValuesBits( 0 ),
+    m_active( true ), m_tabu( false ) {
     m_rowLength = p1.rowLength();
     Pattern p1v( p1 );
     v1.apply( p1v );
@@ -112,8 +115,8 @@ Pattern::~Pattern() {}
 double 
 Pattern::codeLength( int usage, int totalInstances ) {
     if( !usage )
-        usage =1;//return 0.0;
-    return -log2( (double)usage / (double)totalInstances );
+        return 0.0;
+    return -log2( ((double)usage) / ((double)totalInstances) );
 }
 
 double 
@@ -124,13 +127,41 @@ Pattern::updateCodeLength( int totalInstances ) {
 }
 
 double 
-Pattern::bitsPerOffset( int patternWidth, int patternHeight, int base ) {
-    return log2( (double) patternWidth ) + log2( (double) patternHeight ) + log2( (double) base );
+Pattern::entryOffsetsLength( int patternWidth, int patternHeight, int size ) {
+    return /*size * log2( patternWidth * patternHeight ) 
+         +*/ uintCodeLength( patternWidth )
+         + uintCodeLength( patternHeight )
+         + patternWidth * patternHeight - size;       // empty cells take one bit
+         /*+ uintCodeLength( size );*/
 }
 
 double 
-Pattern::updateBitsPerOffset( int base ) {
-    return (m_bitsPerOffset = bitsPerOffset( m_bounds.width, m_bounds.height, base ));
+Pattern::updateEntryLength( const MassFunction& dist ) {
+ //   return (m_entryBits = entryLength( m_bounds.width, m_bounds.height, base, size() ));
+
+    m_entryOffsetsBits = entryOffsetsLength( m_bounds.width, m_bounds.height, size() );
+    
+    m_entryValuesBits =0.0;
+    for( auto&& elem : m_elements ) {
+        m_entryValuesBits += -log2( dist.p( elem.value ) ) + 1;
+    }
+
+    return m_entryOffsetsBits + m_entryValuesBits;
+   
+#if 0
+    double bits =uintCodeLength( size() );
+    ElementT prev = { OffsetT(0,0), 0 };
+    for( auto&& elem : m_elements ) {
+        int col = std::abs( elem.offset.col()/* - prev.offset.col()*/ );
+        int row = std::abs( elem.offset.row()/* - prev.offset.row()*/ );
+        int value = std::abs( elem.value - prev.value );
+        bits += 1.0 + uintCodeLength( col );
+        bits += 1.0 + uintCodeLength( row );
+        bits += 1.0 + uintCodeLength( value );
+        prev = elem;
+    }
+    return bits;
+#endif
 }
 
 void 
@@ -163,7 +194,7 @@ Pattern::recomputeBounds() {
  *  Note that @offs is assumed to be 'positive' (i.e. translates @p either right and/or down)
  */
 bool 
-Pattern::isAdjacent( /*const Pattern& p,*/ const OffsetT& offs ) const {
+Pattern::isAdjacent( const Pattern& p, const OffsetT& offs ) const {
   /*  for( auto it = m_elements.rbegin(); it != m_elements.rend(); it++ ) {
         const ElementT& elem =*it;
         for( auto elem2 : p.m_elements ) {
@@ -173,7 +204,9 @@ Pattern::isAdjacent( /*const Pattern& p,*/ const OffsetT& offs ) const {
         }
     }*/
 
-    if( m_bounds.colMax+1 >= offs.col() && m_bounds.colMin-1 <= offs.col() && m_bounds.rowMax+1 >= offs.row() )
+    if( m_bounds.colMax+1 >= offs.col() + p.m_bounds.colMin
+     && m_bounds.colMin-1 <= offs.col() + p.m_bounds.colMin
+     && m_bounds.rowMax+1 >= offs.row() + p.m_bounds.rowMin )
         return true;
     return false;
 }
@@ -184,6 +217,20 @@ Pattern::isInside( const OffsetT& offs ) const {
     return offs.row() /*+ m_bounds.rowMin*/ <= m_bounds.rowMax
         && offs.col() /*+ m_bounds.colMin*/ <= m_bounds.colMax
         && offs.col() >= m_bounds.colMin;
+}
+
+/** Returns true if this pattern is in canonical form */
+bool
+Pattern::isCanonical() const {
+    ElementT elem0 =*elements().begin();
+    if( !elem0.offset.isZero() ) return false;
+    int position = elem0.offset.position();
+
+    for( auto&& elem : elements() ) {
+        if( elem.offset.position() < position ) return false;
+        position = elem.offset.position();
+    }
+    return true;
 }
 
 void

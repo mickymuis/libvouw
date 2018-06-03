@@ -20,9 +20,12 @@ class Variant {
         virtual ~Variant() {}
 
         virtual void apply( Pattern& ) const {}
+        virtual Pattern::ElementT apply( int i ) const {}
 
         bool isValid() const { return m_valid; }
         void setValid( bool b ) { m_valid =b; }
+
+
 
         virtual int hash() const { return m_valid; }
 
@@ -42,6 +45,12 @@ class EquivalenceSet {
                                      const Variant& v1, 
                                      const Variant& v2,
                                      const Pattern::OffsetT& offset );
+       /* virtual Variant* makeVariant( const Pattern& pSrc,
+                                      const Pattern& pDest,
+                                      const Variant& vDest );
+        virtual Variant* makeVariant( const Variant& v1,
+                                      const Variant& v2,
+                                      const Pattern::OffsetT& offset );*/
         virtual Variant* makeNullVariant();
     private:
         Variant m_null;

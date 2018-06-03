@@ -152,7 +152,7 @@ MainWindow::encode( Vouw::Encoder* v ) {
     while( v->encodeStep() ){
         updateConsole();
         vouwWidget->showEncoded( v );
-        qApp->processEvents();
+        //qApp->processEvents();
     }
 
     std::cout << "Compression ratio: " << std::setprecision(4) << v->ratio() * 100.0 << "%" << std::endl;

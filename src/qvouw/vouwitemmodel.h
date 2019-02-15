@@ -29,12 +29,15 @@ public:
 
     void appendChild(VouwItem *child);
 
+    void removeChildren( int startRow, int count ); 
+
     VouwItem *child(int row);
     int childCount() const;
     int columnCount() const;
     QVariant data(int column) const;
     int row() const;
     VouwItem *parent();
+    VouwItem *ancestor();
     Role role() const;
 
 private:
@@ -56,6 +59,8 @@ public:
     VouwItem* add( Vouw::Encoder*, const QString& name );
     VouwItem* addEmpty( const QString& name );
 
+    //void update( VouwItem* );
+
     VouwItem* fromIndex( const QModelIndex& index ) const;
 
     QModelIndex index(int row, int column, const QModelIndex &parent = QModelIndex()) const override;
@@ -73,7 +78,6 @@ public:
 
 private:
     VouwItem* rootItem;
-//    QList<VouwItem*> objList;
 
 };
 

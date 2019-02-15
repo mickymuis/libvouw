@@ -31,19 +31,32 @@ CodeTable::~CodeTable() {
 
 void CodeTable::updateCodeLengths( int totalInstances, const MassFunction& distr ) {
 
-    m_bits =0.0;
+    int ctSize =countIfActive();
+
+    double ct_bits =uintCodeLength( ctSize );
+    double inst_bits = uintCodeLength( m_width )
+                     + uintCodeLength( m_height )
+                     + log2( m_width * m_height )
+                     ;//+ uintCodeLength( binom( m_width * m_height, totalInstances ) );
+
+    inst_bits += lgamma( (double)totalInstances + pseudoCount * (double)ctSize ) / log(2)
+               - lgamma( pseudoCount * (double)ctSize ) / log(2); 
 
     for( auto p : *this ) {
         if( p->isActive() ) {
-            m_bits += p->updateCodeLength( totalInstances );
+            inst_bits += p->updateCodeLength( totalInstances, ctSize );
             if( p->entryLength() != 0.0 )
-                m_bits += p->entryLength();
+                ct_bits += p->entryLength();
             else
-                m_bits += p->updateEntryLength( distr );
+                ct_bits += p->updateEntryLength( distr );
         } else
-            p->updateCodeLength( totalInstances );
+            p->updateCodeLength( totalInstances, ctSize );
         //m_bits += p->size() * m_stdBitsPerOffset;
     }
+
+    m_bits =ct_bits + inst_bits;
+
+    fprintf( stderr, "L(H) = %f, L(D|H) = %f\n", ct_bits, inst_bits );
 }
 
 void CodeTable::sortBySizeDesc() {

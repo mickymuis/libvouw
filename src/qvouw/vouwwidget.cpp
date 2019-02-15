@@ -180,7 +180,7 @@ VouwWidget::showMatrix( Vouw::Matrix2D* mat ) {
 
     float yCenter = mat->height() * .5f;
     float xCenter = mat->width() * .5f;
-    zoom = (float)qMax( mat->height(), mat->width() ) / 2.f;
+    zoom = (float)qMax( mat->height(), mat->width() ) / 4.f;
 
     QVector<GLfloat> vertData;
     for (int i = 0; i < mat->height(); ++i) {    
@@ -229,12 +229,17 @@ VouwWidget::showEncoded( Vouw::Encoder* v ) {
     int width = v->matrix()->width();
     float yCenter = height * .5f;
     float xCenter = width * .5f;
-    zoom = (float)qMax( height, width ) / 2.f;
+    zoom = (float)qMax( height, width ) / 4.f;
 
     for( auto&& region : *v->instanceSet() ) {
 
         //region_apply( region, m );
         Vouw::Pattern* p =region.pattern();
+        QColor color;
+        if( p->isTabu() )
+            color = clearColor;
+        else 
+            color = colorLabel( p->label() );
         for( auto&& elem : p->elements() ) {
             // For each offset, compute its location on the automaton
             Vouw::Coord2D c = elem.offset.abs( region.pivot() );
@@ -245,7 +250,6 @@ VouwWidget::showEncoded( Vouw::Encoder* v ) {
             vertData.append((float)c.row() - yCenter);
             vertData.append(0.0f);
 
-            QColor color = colorLabel( p->label() );
 
             vertData.append( color.redF() );
             vertData.append( color.greenF() );

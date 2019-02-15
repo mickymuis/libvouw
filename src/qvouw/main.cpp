@@ -9,14 +9,14 @@ int main(int argc, char *argv[])
 
     QApplication app(argc, argv);
 
-    QSurfaceFormat format;
+  /*  QSurfaceFormat format;
     //format.setRenderableType(QSurfaceFormat::OpenGL);
     format.setDepthBufferSize(24);
     format.setMajorVersion(3);
     format.setMinorVersion(2);
     format.setSamples(4);
     format.setProfile(QSurfaceFormat::CoreProfile);    
-    QSurfaceFormat::setDefaultFormat(format);
+    QSurfaceFormat::setDefaultFormat(format);*/
 
     MainWindow window;
     window.show();

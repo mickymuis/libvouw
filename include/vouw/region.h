@@ -30,7 +30,7 @@ class RegionList : public std::vector<Region> {
         void unflagAll();
         inline void eraseIfFlagged( RegionList::iterator begin, RegionList::iterator end ) { erase( std::remove_if( begin, end, region_is_masked ), end ); }
 
-        void updateCodeLengths();
+        void updateCodeLengths( int modelSize );
 
         inline double totalLength() const { return m_bits; }
         inline double bitsPerPivot() const { return m_stdBitsPerPivot; }

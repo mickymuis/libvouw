@@ -12,10 +12,14 @@
 
 VOUW_NAMESPACE_BEGIN
 
+const double pseudoCount =1.0;
+
 /** Returns the length of the Universal Code for Integers
   * It is defined as log2*(n) + log2(c) 
   * See `Universal Prior for Integers' by Jorma Rissanen */ 
 double uintCodeLength( unsigned int n );
+
+double binom( unsigned int n, unsigned int k );
 
 enum DirT {
     DirNone =0,

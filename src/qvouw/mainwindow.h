@@ -13,6 +13,7 @@ VOUW_NAMESPACE_END
 class VouwWidget;
 class VouwItem;
 class VouwItemModel;
+class MatrixWidget;
 
 class MainWindow : public QMainWindow
 {
@@ -37,12 +38,13 @@ private:
     void encode( Vouw::Encoder* );
     void setCurrentItem( VouwItem* );
 
-    VouwWidget* vouwWidget;
+    MatrixWidget* vouwWidget;
     VouwItemModel* vouwModel;
     VouwItem* currentItem;
     QTextEdit* console;
     QFile console_stderr;
     QFile console_stdout;
+    bool showProgress;
 };
 
 #endif

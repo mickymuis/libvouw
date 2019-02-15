@@ -98,8 +98,8 @@ class Pattern {
 
         /* Functions that are related to (computing) the code length */
 
-        static double codeLength( int usage, int totalInstances );
-        double updateCodeLength( int totalInstances );
+        static double codeLength( int usage, int totalInstances, int modelSize );
+        double updateCodeLength( int totalInstances, int modelSize );
         double codeLength() const { return m_codeBits; }
         static double entryOffsetsLength( int patternWidth, int patternHeight, int size );
         double updateEntryLength( const MassFunction& distribution );

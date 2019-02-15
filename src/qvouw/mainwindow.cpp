@@ -3,6 +3,7 @@
 #include <QFileDialog>
 #include <QInputDialog>
 
+#include "matrixwidget.h"
 #include "vouwwidget.h"
 #include "mainwindow.h"
 #include "vouwitemmodel.h"
@@ -28,6 +29,28 @@ MainWindow::MainWindow() : QMainWindow(), currentItem( 0 )
     actQuit->setShortcuts(QKeySequence::Quit);
     actQuit->setStatusTip(tr("Quit application"));
     connect(actQuit, &QAction::triggered, this, &MainWindow::quit);
+
+    QAction* actShowProg = new QAction(tr("Show progress"), this );
+    actShowProg->setCheckable( true );
+    connect( actShowProg, &QAction::toggled, [=]( bool checked ){ showProgress =checked; } );
+    actShowProg->setChecked( true );
+    
+    QAction* actZoomIn = new QAction(tr("Zoom in"), this );
+    actZoomIn->setShortcut( QKeySequence::ZoomIn );
+    connect( actZoomIn, &QAction::triggered, [=]( void ){ vouwWidget->zoomStepIn(); } );
+    
+    QAction* actZoomOut = new QAction(tr("Zoom out"), this );
+    actZoomOut->setShortcut( QKeySequence::ZoomOut );
+    connect( actZoomOut, &QAction::triggered, [=]( void ){ vouwWidget->zoomStepOut(); } );
+    
+    QAction* actZoomFit = new QAction(tr("Zoom fit"), this );
+    connect( actZoomFit, &QAction::triggered, [=]( void ){ vouwWidget->zoomFit(); } );
+    
+    QAction* actZoomFill = new QAction(tr("Zoom fill"), this );
+    connect( actZoomFill, &QAction::triggered, [=]( void ){ vouwWidget->zoomFill(); } );
+    
+    QAction* actResetView = new QAction(tr("Reset view"), this );
+    connect( actResetView, &QAction::triggered, [=]( void ){ vouwWidget->zoomFill(); vouwWidget->setPan(0,0); } );
     
     /* Menubar */
     QMenu* fileMenu = menuBar()->addMenu(tr("&File"));
@@ -35,8 +58,18 @@ MainWindow::MainWindow() : QMainWindow(), currentItem( 0 )
     fileMenu->addAction(actQuit);
     // fileMenu->addSeparator();
 
+    QMenu* viewMenu = menuBar()->addMenu(tr("&View"));
+    viewMenu->addAction(actShowProg);
+    viewMenu->addSeparator();
+    viewMenu->addAction(actZoomIn);
+    viewMenu->addAction(actZoomOut);
+    viewMenu->addAction(actZoomFit);
+    viewMenu->addAction(actZoomFill);
+    viewMenu->addSeparator();
+    viewMenu->addAction(actResetView);
+    
     /* Create instance of the vouw viewer widget */
-    vouwWidget = new VouwWidget( this );
+    vouwWidget = new MatrixWidget( this );
     
     setCentralWidget(vouwWidget);
 
@@ -152,7 +185,8 @@ MainWindow::encode( Vouw::Encoder* v ) {
     while( v->encodeStep() ){
         updateConsole();
         vouwWidget->showEncoded( v );
-        //qApp->processEvents();
+        if( showProgress )
+            qApp->processEvents();
     }
 
     std::cout << "Compression ratio: " << std::setprecision(4) << v->ratio() * 100.0 << "%" << std::endl;

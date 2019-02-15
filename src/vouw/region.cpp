@@ -49,13 +49,13 @@ bool operator<(const Region& r1, const Region& r2) {
 
 RegionList::RegionList( int matWidth, int matHeight, int matBase) : 
     std::vector<Region>(), 
-    m_bits( 0.0 ), m_stdBitsPerPivot( 1.0 ) {
+    m_bits( 0.0 ), m_stdBitsPerPivot( 0.0 ) {
     setMatrixSize( matWidth, matHeight, matBase );
 }
 
 RegionList::RegionList( const Matrix2D* mat ) : 
     std::vector<Region>(), 
-    m_bits( 0.0 ), m_stdBitsPerPivot( 1.0 ) {
+    m_bits( 0.0 ), m_stdBitsPerPivot( 0.0 ) {
     setMatrixSize( mat->width(), mat->height(), mat->base() );
 }
 
@@ -66,18 +66,19 @@ RegionList::bitsPerPivot( std::size_t pivotCount ) {
     return log2( (double) pivotCount );
 }
 
-void RegionList::updateCodeLengths() {
-
+void RegionList::updateCodeLengths( int modelSize ) {
+/*
   //  m_stdBitsPerPivot = bitsPerPivot( this->size() );
     m_bits =uintCodeLength( this->size() );
 
     for( auto& r : *this ) {
         Pattern* p =r.pattern();
-        m_bits += p->codeLength();
+        //m_bits += p->codeLength();
         r.m_variantBits = log2( (double)p->usage() ); // TODO fix
         //m_bits += r.variantBits();
     }
-    m_bits += this->size() * m_stdBitsPerPivot;
+    m_bits += lgamma( (double)size() + pseudoCount * (double)modelSize ) / log(2)
+            - lgamma( pseudoCount * (double)modelSize ) / log(2); */
 }
 
 void RegionList::clearBitmasks() {

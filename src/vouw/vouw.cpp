@@ -7,6 +7,7 @@
 
 #include <vouw/vouw.h>
 #include <cmath>
+#include <climits>
 
 VOUW_NAMESPACE_BEGIN
 
@@ -29,6 +30,16 @@ uintCodeLength( unsigned int n ) {
     };
 
     return l;
+}
+
+double binom( unsigned int n, unsigned int k ) {
+    unsigned c = 1, i;
+  if (k > n-k) k = n-k;  /* take advantage of symmetry */
+  for (i = 1; i <= k; i++, n--) {
+    if (c/i > UINT_MAX/n) return 0;  /* return 0 on overflow */
+    c = c/i * n + c%i * n / i;  /* split c*n/i into (c/i*i + c%i)*n/i */
+  }
+  return c;
 }
 
 VOUW_NAMESPACE_END

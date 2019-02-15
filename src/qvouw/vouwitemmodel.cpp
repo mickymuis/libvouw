@@ -35,6 +35,17 @@ VouwItem::appendChild(VouwItem *child) {
     childList.append( child );
 }
 
+void 
+VouwItem::removeChildren( int startRow, int count ) {
+    if( startRow < 0 || startRow + count > childList.size() )
+        return;
+
+    for( int row = 0; row < count; ++row )
+        delete childList.takeAt( startRow );
+
+    return;
+}
+
 VouwItem *VouwItem::child(int row) {
     return childList[row];
 }
@@ -80,6 +91,11 @@ int VouwItem::row() const {
 
 VouwItem *VouwItem::parent() {
     return parentItem;
+}
+
+VouwItem *VouwItem::ancestor() {
+    if( !parent() ) return this;
+    return parent()->ancestor();
 }
 
 VouwItem::Role VouwItem::role() const {
@@ -237,3 +253,8 @@ VouwItemModel::addEmpty( const QString& name ) {
 
     return parent;
 }
+
+/*void 
+VouwItemModel::update( VouwItem* item ) {
+
+}*/

@@ -113,26 +113,31 @@ Pattern::Pattern( const Pattern& p1, const Variant& v1, const Pattern& p2, const
 Pattern::~Pattern() {}
 
 double 
-Pattern::codeLength( int usage, int totalInstances ) {
+Pattern::codeLength( int usage, int totalInstances, int modelSize ) {
     if( !usage )
         return 0.0;
-    return -log2( ((double)usage) / ((double)totalInstances) );
+    //return -log2( ((double)usage) / ((double)totalInstances) );
+    return  - lgamma( (double)usage + pseudoCount ) / log(2)
+            + lgamma( pseudoCount ) / log(2);
+
+    //fprintf( stderr, "codeLength %d,%d,%d = %f\n", usage, totalInstances, modelSize, l );
 }
 
 double 
-Pattern::updateCodeLength( int totalInstances ) {
+Pattern::updateCodeLength( int totalInstances, int modelSize ) {
 //    for( auto&& elem : m_elements ) {
 //    }
-    return (m_codeBits = codeLength( m_usage, totalInstances ));
+    return (m_codeBits = codeLength( m_usage, totalInstances, modelSize ));
 }
 
 double 
 Pattern::entryOffsetsLength( int patternWidth, int patternHeight, int size ) {
     return /*size * log2( patternWidth * patternHeight ) 
-         +*/ uintCodeLength( patternWidth )
+         +*/ /*uintCodeLength( patternWidth )
          + uintCodeLength( patternHeight )
-         + patternWidth * patternHeight - size;       // empty cells take one bit
-         /*+ uintCodeLength( size );*/
+         + uintCodeLength( binom( (patternWidth*patternHeight), size ) )
+         + log2(patternWidth * patternHeight); */       // empty cells take one bit
+        +0;// + uintCodeLength( size );
 }
 
 double 
@@ -142,9 +147,20 @@ Pattern::updateEntryLength( const MassFunction& dist ) {
     m_entryOffsetsBits = entryOffsetsLength( m_bounds.width, m_bounds.height, size() );
     
     m_entryValuesBits =0.0;
+
+    m_entryValuesBits = log2( dist.uniqueElements() ) * size();
+    /*MassFunction f;
     for( auto&& elem : m_elements ) {
-        m_entryValuesBits += -log2( dist.p( elem.value ) ) + 1;
+   //     m_entryValuesBits += -log2( dist.p( elem.value ) );
+        f.increment( elem.value );
     }
+
+    m_entryValuesBits += lgamma( (double)f.totalElements() + pseudoCount * (double)f.uniqueElements() ) / log(2)
+                       - lgamma( pseudoCount * (double)f.uniqueElements() ) / log(2); 
+    for( auto&& elem : f.elements() ) {
+        m_entryValuesBits += -lgamma( (double)elem.second + pseudoCount ) / log(2)
+                             +lgamma( pseudoCount ) / log(2);
+    }*/
 
     return m_entryOffsetsBits + m_entryValuesBits;
    

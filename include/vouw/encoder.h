@@ -67,15 +67,16 @@ class Encoder {
         bool m_isEncoded;
         int m_lastLabel;
         int m_decompositions;
+        int m_iteration;
         
     private:
         Encoder( const Encoder& ) {}
-        double computeCandidateEntryLength( const Candidate* );
+        double computeCandidateEntryLength( const Candidate*, bool debugPrint =false );
         double computeGain( const Candidate*, int usage, bool debugPrint =false );
         double computePruningGain( const Pattern* p );
         double computeDecompositionGain( const Pattern* p, bool debugPrint =false );
         void mergePatterns( const Candidate* );
-        void prunePattern( Pattern*, bool onlyZeroPattern = true );
+        bool prunePattern( Pattern*, bool onlyZeroPattern = true );
 
 };
 

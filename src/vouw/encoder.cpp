@@ -344,7 +344,7 @@ bool Encoder::encodeStep() {
     
     TimeVarT t5 = timeNow();
     std::cerr << "Elapsed time: " << duration( t5-t4 ) << " ms."<< std::endl;
-    std::cerr << "Total elapsed time: " << duration( t5-t1 ) << " ms."<< std::endl;
+    std::cerr << "Iteration elapsed time: " << duration( t5-t1 ) << " ms."<< std::endl;
 
     std::cerr << std::flush;
     std::cout << std::flush;
@@ -353,7 +353,15 @@ bool Encoder::encodeStep() {
 
 int Encoder::encode() {
     int steps =0;
+    
+    TimeVarT t = timeNow();
+
     while( encodeStep() ) steps++;
+
+    TimeVarT t2 = timeNow();
+
+    std::cout << "Total elapsed time: " << duration( t2-t ) << " ms." << std::endl << std::flush;
+
     return steps;
 }
 

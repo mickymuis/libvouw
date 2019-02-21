@@ -182,12 +182,15 @@ MainWindow::timerEvent(QTimerEvent *event) {
 
 void
 MainWindow::encode( Vouw::Encoder* v ) {
-    while( v->encodeStep() ){
-        updateConsole();
-        vouwWidget->showEncoded( v );
-        if( showProgress )
+    if( showProgress ) {
+    // To enable visualisation within the encoding steps, we call encodeStep() ourselves
+        while( v->encodeStep() ){
+            updateConsole();
+            vouwWidget->showEncoded( v );
             qApp->processEvents();
-    }
+        }
+    } else
+        v->encode();
 
     std::cout << "Compression ratio: " << std::setprecision(4) << v->ratio() * 100.0 << "%" << std::endl;
     std::cout << "Model: " << v->codeTable()->countIfActive() << " patterns, Instance Set: " << v->instanceSet()->size() << " regions." << std::endl;

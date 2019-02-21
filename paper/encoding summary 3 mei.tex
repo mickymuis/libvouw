@@ -1,0 +1,71 @@
+\documentclass{llncs}
+\usepackage{llncsdoc}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{algpseudocode}
+\usepackage{algorithm}
+\usepackage{algorithmicx}
+\usepackage{color}
+\usepackage{gnuplottex}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{microtype}
+\captionsetup{compatibility=false}
+
+%\algloopdefx[IfContinue]{IfContinue}
+%[1]{\textbf{if} #1 \textbf{then break}}
+
+\algsetblockdefx[IfContinue]{IfContinue}{IfContinue}
+{0}{0pt}
+[0]{}
+[1]{\textbf{if} #1 \textbf{then continue}}
+
+\begin{document}
+\section{VOUW: A Framework}
+\subsection{Encoding Models and Instantiations}
+
+\begin{definition}
+Given a set of instantiations $A|H_A$, we take $\mathtt{usage}(X)$ of a pattern $X$ to be the prevalence of $X^*$ in $A|H_A$. More precisely 
+$$\mathtt{usage}(X) = |\{R\mid R=(Y,t,\vec{p}) \in \{A|H_A\}, Y^*=X^*\}|$$
+\end{definition}
+
+From this definition we see that the \emph{usage} of a pattern is sum a of how often any of its variants occur as an instance. Using this function we find the probability that a certain pattern occurs simply by $P(X)=\frac{\mathtt{usage}(X)}{|\{A|H_A\}|}$. The optimal length of a code word $L^C$ can then be found by Shannon's Entropy. 
+
+\subsubsection{Pattern dimensions}
+The number of bits required for the spatial offsets depend directly on the \emph{area} the pattern covers in $A$. We define this area informally as the difference in rows and columns between the smallest and the largest offset in a pattern $X$. Furthermore, instead of computing the area, we compute the \emph{width} and \emph{height} of a pattern separately. These are defined in two steps: first we define $\mathtt{rowMax}(X) = i \iff \big((i,j),\vec{w}\big) \in X \land \nexists \big((i',j'),\vec{w'}\big) \in X \ \mathrm{s.t.} \ i'>i$, and analogously $\mathtt{rowMin}(X)$, $\mathtt{colMax}(X)$ and $\mathtt{colMin}(X)$ as the largest and smallest row and column occurring in an offset of X respectively. We can then simple say that $\mathtt{width}(X) = \mathtt{colMax}(X) - \mathtt{colMin}(X)$ and define $\mathtt{height}(X)$ analogously for the row offsets. 
+
+A problem with this approach is that it only looks at the surface area of the pattern. For example, patterns measuring $2 \times 8$ and $4 \times 4$ have equal code lengths while the latter \emph{may} be favourable.
+
+\subsubsection{Pattern code length}
+
+$$
+L(X)= |X| \cdot \bigg( -\log\Big(\mathtt{height}(X)^{-1}\Big) -\log\Big(\mathtt{width}(X)^{-1}\Big) - \log\Big(b(A)^{-1}\Big)\bigg)
+$$
+There the term $-\log\Big(b(A)^{-1}\Big)$ has a big influence on the encoding performance while $b(A)$ says little about the distribution of values in $A$.
+
+\subsubsection{Variant encoding}
+
+Each region simply refers to its pattern X by using the code word we computed earlier and we already know its length. The pivot is again a fixed number that depends on the total number of instantiations $|\{A|H_A\}|$. Encoding the variant is harder because we have never clearly defined $|X^*|$. In principle the upper bound for the number of variants for a given pattern $X$ is $b(A)^{|X|}$, since we established $X^*$ is at least finite. This is not a practical figure however, given that there probably are far less elements in $A$. A solution is to limit the total number of variants for $X$ to the number that \emph{we know about} at a given moment. We can find this number in a similar way to the \texttt{usage} function. 
+\begin{definition}
+Given a set of instantiations $A|H_A$, we define
+$$\mathtt{variants}(X) = |\{Y\circ t\mid R=(Y,t,\vec{p}) \in \{A|H_A\}, Y^*=X^*\}|$$
+\end{definition}
+Which basically defines $\mathtt{variants}(X)$ as the number of distinct variants of $X$ that occur within $A|H_A$. 
+
+\subsubsection{Region code length}
+
+$$
+L(R) = -log\big(|\{A|H_A\}|^{-1}\big) -\log\big(\mathtt{variants}(X)^{-1}\big) + L^C(X)
+$$
+Where $X$ is the pattern in $R$. Note that the size of the instance set $|\{A|H_A\}|$ is used both here as well as to compute the code length of a single pattern, giving a bias to the size of the instance set (i.e. favouring many patterns and few regions).
+
+\subsubsection{Total code length sums}
+
+\begin{align*}
+L(H_A) &= \displaystyle\sum_{X\in H_A} L^C(X) + L(X) \\
+L(A|H_A) &= \displaystyle\sum_{R\in A|H_A} L(R)
+\end{align*}
+
+
+\end{document}

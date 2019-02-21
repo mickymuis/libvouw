@@ -1,0 +1,7 @@
+unset key
+set terminal latex
+
+set output 'ratio-2.3.tex'
+set xlabel 'Rule #'
+set ylabel 'Compression ratio %'
+plot '~/itdm/paper vouw/ratio-3.2.txt' with lines

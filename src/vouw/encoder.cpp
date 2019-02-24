@@ -156,6 +156,7 @@ void Encoder::setFromMatrix( Matrix2D* mat, bool useTabu ) {
             }
         }
         /* We set the corresponding pattern as tabu and remove the value from the mass function */
+        //m_smap[elem].first->setActive( false );
         m_smap[elem].first->setTabu( true );
         //m_massfunc.setCount( elem, 0 );
         printf( "Singleton with value %d is set as tabu.\n", elem );
@@ -286,12 +287,12 @@ bool Encoder::encodeStep() {
     if( m_iteration > 1 && bestGain <= 0.0 ) {
         std::cout << "No compression gain." << std::endl;
 
-        bool prune =false;
+     /*   bool prune =false;
         for( auto p : *m_ct ) {
              prune = prunePattern( p, false ) || prune;
         }
         if( prune ) return true;
-
+*/
 
         m_isEncoded =true;
 

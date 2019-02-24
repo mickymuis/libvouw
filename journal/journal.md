@@ -3,7 +3,7 @@
 VOUW Project Journal
 ====================
 
-## Status quo up to February 2019 (21-2-2019)
+## Status quo up to February 2019 (updated 24-2-2019)
 
 In order to assess uncoming modifications, I decided to benchmark and report on the current sitution first. I will briefly decribe the components of the algorithm with their current implementation decisions.
 
@@ -38,5 +38,8 @@ These tests provide some insight into the current performance of the algorithm. 
 | shapes40              | 31.82%  | 10       | 106        | 106 ms        | Good               |
 | checkboard256         | 2.542%  | 3        | 16         | 401 ms        | Mediocre           |
 | noise512              | -       | -        | -          | -             | Crash              |
+| noisytriangles64      | 97.2%   | 14       | 7          | 23 ms         | Mediocre           |
+| smallpair16           | 71.12%  | 6        | 9          | 2 ms          | Mediocre           |
+| rulers32              | 93.64%  | 8        | 8          | 4 ms          | Mediocre           |
 
-All tests were performed with 8 quantization levels and 'show progress' unchecked for unbiased timings.
+All tests were performed with 8 quantization levels and 'show progress' unchecked for unbiased timings. Note that the last three tests were especially crafted to make the current algorithm perform at its worst.

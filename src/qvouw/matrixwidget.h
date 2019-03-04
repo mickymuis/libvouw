@@ -11,6 +11,7 @@ class MatrixWidget : public QWidget {
 Q_OBJECT
 public:
     enum Mode { None, InputMatrix, InstanceMatrix, Pattern };
+    enum Option { HideSingletons =1 };
 
     MatrixWidget( QWidget *parent =0 );
     ~MatrixWidget();
@@ -21,6 +22,9 @@ public:
     void panBy( float x, float y );
     void setPan( float x, float y );
     void setZoom( float f );
+
+    void setOption( Option, bool active );
+    bool hasOption( Option ) const;
 
     QSize minimumSizeHint() const override;
     QSize sizeHint() const override;
@@ -45,7 +49,7 @@ protected:
 private:
     QColor colorLabel( int label );
     QColor colorValue( Vouw::Matrix2D::ElementT value, int base );
-    int mode;
+    int mode, opts;
     union data_t {
         Vouw::Matrix2D* mat;
         Vouw::Encoder* enc;

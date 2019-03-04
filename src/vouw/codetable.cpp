@@ -9,7 +9,8 @@
 #include <vouw/pattern.h>
 #include <vouw/matrix.h>
 #include <vouw/massfunction.h>
-#include <math.h>
+#include <cmath>
+#include <algorithm>
 
 VOUW_NAMESPACE_BEGIN
 
@@ -60,7 +61,8 @@ void CodeTable::updateCodeLengths( int totalInstances, const MassFunction& distr
 }
 
 void CodeTable::sortBySizeDesc() {
-
+    sort( [](Pattern* a, Pattern* b) {
+            return b->size() < a->size(); } );
 }
 
 void 

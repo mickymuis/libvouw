@@ -3,6 +3,27 @@
 VOUW Project Journal
 ====================
 
+## (Re-)encoding with a given codetable (update 4-3-2019)
+
+When a dataset is encoded using a given codetable, certain decisions have to be made during this process. There is often more than one possiblity for 'fitting' patterns to a dataset and choices made here can affect the compression ratio dramatically. One example is that if patterns are greedily placed to cover a dataset, previously placed patterns might be 'in the way' of placing a (possibly better fitting) pattern at a location that would otherwise give a good description of the data.
+
+The current commit of VOUW includes a simplistic encoding scheme that applies the mined codetable (again) to the same data. It thus regenerates the instance matrix from scratch with an existing codetable, let us call it 're-encoding'. Currently, I use an heuristic that first tries to fit the largest pattern in as many instances as possible, then the second-largest etc. This heuristic makes sense from a compression point-of-view, because large patterns reduce the size of the instance matrix. 
+
+One of the ideas was to replace the algorithmic pattern/instance merging with a re-encode step each iteration. This would then hopefully prevent the small-pair-preference artifact to occur and would lead to a more repoducible result. Some simple tests indicated an (expected) performance degradation of a factor 100-500. However, the results did not benefit in the expected way. The small-pair-preference problem disappears in some instances, but not in others. The main reason for this is that the candidate search does not 'see' the possiblities that are created afterwards by the re-encoding step. 
+
+Re-encoding might still be key to the encoding process, but perhaps not for every iteration. I did some tests with re-encoding after the normal algorithm has run its course (thus as a refinement step after encoding). I have tested this on the noisy_triangles example, of which I have also created larger version (with equal patterns and noise). As we had expected, the large versions encode marginally better, probably due to the fact that MDL works poorly on very small datasets.
+
+| Test set              | Ratio   | Patterns | Iterations | Time          | Subjective quality |
+|-----------------------|--------:|---------:|-----------:|--------------:| -------------------|
+| noisytriangles64      | 96.7%   | 12       | 9          | 34 ms         | Mediocre           |
+| noisytriangles64 *    | 96.6%   | 13       |            |               | Same as above      |
+| noisytriangles256     | 98.0%   | 17       | 23         | 1531 ms       | Mediocre           |
+| noisytriangles256 *   | 97.6%   | 14       |            |               | Slightly better    |
+| noisytriangles512     | 97.6%   | 24       | 25         | 12469 ms      | Mediocre           |
+| noisytriangles512 *   | 97.4%   | 18       |            |               | Much improved      |
+
+The entries with * have been re-encoded as a refinement step. Note that due to the noisy nature of the tests, the compression ratio looks not very good, but the signal-to-noise ratio is actually quite impressive (we should develop an additional metric for this). We can clearly see that the re-encoded datasets improve in subjective clarity as well as the number of patterns needed to describe the dataset, whilst improving the ratio. 
+
 ## Status quo up to February 2019 (updated 24-2-2019)
 
 In order to assess uncoming modifications, I decided to benchmark and report on the current sitution first. I will briefly decribe the components of the algorithm with their current implementation decisions.

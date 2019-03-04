@@ -38,6 +38,7 @@ class Encoder {
 
         bool encodeStep();
         int encode();
+        void reencode();
         Matrix2D* decode();
         
         bool isEncoded() const { return m_isEncoded; }

@@ -6,7 +6,7 @@
 
 MatrixWidget::MatrixWidget( QWidget *parent ) : QWidget( parent ) {
 
-    mode =None;
+    mode =None; opts =0;
     vs =NULL;
     setBackgroundRole(QPalette::Dark);
     setAutoFillBackground(true);
@@ -53,6 +53,20 @@ MatrixWidget::setZoom( float f ) {
 }
 
 void 
+MatrixWidget::setOption( Option opt, bool active ) {
+    if( active ) 
+        opts |= opt;
+    else
+        opts &= ~opt;
+    update();
+}
+
+bool 
+MatrixWidget::hasOption( Option opt ) const {
+    return opts & opt;
+}
+
+void 
 MatrixWidget::zoomStepIn() {
     if( !vs ) return;
     vs->zoom *= 1.1f;
@@ -71,6 +85,7 @@ void
 MatrixWidget::zoomFill() {
     if( !vs ) return;
     vs->zoom =1.f;
+    vs->yPan = vs->xPan = 0.f;
     update();
 }
 
@@ -82,6 +97,7 @@ MatrixWidget::zoomFit() {
     } else if( worldSize.height() / vs->zoom > height() ) {
         vs->zoom = height() / (worldSize.height() / vs->zoom);
     }
+    vs->yPan = vs->xPan = 0.f;
     update();
 }
 
@@ -198,7 +214,7 @@ MatrixWidget::paintEvent( QPaintEvent *event ) {
         for( auto&& region : *data.enc->instanceSet() ) {
 
             Vouw::Pattern* p =region.pattern();
-            if( p->isTabu() )
+            if( p->isTabu() || (p->size() == 1 && opts & HideSingletons) )
                 continue;
             
             QColor color;
@@ -261,7 +277,7 @@ MatrixWidget::mouseMoveEvent(QMouseEvent *event)
     int dx = event->x() - lastPos.x();
     int dy = event->y() - lastPos.y();
 
-    float precision =.01f;
+    float precision =1.f / pixelSize;
 
     if (event->buttons() & Qt::LeftButton) {
         //rotateBy(8 * dy, 8 * dx, 0);
@@ -269,6 +285,7 @@ MatrixWidget::mouseMoveEvent(QMouseEvent *event)
     } else if (event->buttons() & Qt::RightButton) {
    //     rotateBy(8 * dy, 8 * dx, 0);
         //rotateBy(8 * dy, 0, 8 * dx);
+        zoomFit();
     }
     lastPos = event->pos();
 }

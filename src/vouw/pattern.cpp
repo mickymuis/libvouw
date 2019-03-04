@@ -249,6 +249,26 @@ Pattern::isCanonical() const {
     return true;
 }
 
+bool 
+Pattern::apply( Matrix2D* mat, const Coord2D& pivot, bool flag ) {
+
+    for( auto&& elem : elements() ) {
+        Coord2D c =elem.offset.abs( pivot );
+
+        if( flag ) { 
+            mat->setFlagged( c, true ); 
+            continue; 
+        }
+
+        if( mat->isFlagged( c ) ) return false;
+
+        if( mat->value( c ) != elem.value )
+            return false;
+    }
+
+    return true;
+}
+
 void
 Pattern::debugPrint() const {
     printf( "Pattern #%d, bounds {%d, %d, %d, %d, %d, %d}\n", label(),

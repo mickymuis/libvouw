@@ -254,6 +254,7 @@ bool Encoder::encodeStep() {
 
     for( auto&& pair : candidates ) {
        // if( pair.second < bestUsage-1 ) continue; // Extra greedy selection by usage
+        if( pair.second <= 1 ) continue;
         const Candidate& c = pair.first;
 
         // Fractured pattern, merge it without further considerations
@@ -287,12 +288,12 @@ bool Encoder::encodeStep() {
     if( m_iteration > 1 && bestGain <= 0.0 ) {
         std::cout << "No compression gain." << std::endl;
 
-     /*   bool prune =false;
+        bool prune =false;
         for( auto p : *m_ct ) {
              prune = prunePattern( p, false ) || prune;
         }
         if( prune ) return true;
-*/
+
 
         m_isEncoded =true;
 
@@ -339,7 +340,7 @@ bool Encoder::encodeStep() {
     }
 
     /* Run prunePattern with decomposition */
-/*    prunePattern( bestC.p1, false );
+   /* prunePattern( bestC.p1, false );
     if( bestC.p1 != bestC.p2 )
         prunePattern( bestC.p2, false );*/
     
@@ -352,12 +353,14 @@ bool Encoder::encodeStep() {
     return true;
 }
 
-int Encoder::encode() {
+int 
+Encoder::encode() {
     int steps =0;
     
     TimeVarT t = timeNow();
 
     while( encodeStep() ) steps++;
+    m_mat->unflagAll();
 
     TimeVarT t2 = timeNow();
 
@@ -366,7 +369,40 @@ int Encoder::encode() {
     return steps;
 }
 
-Matrix2D* Encoder::decode() {
+void
+Encoder::reencode() {
+
+    m_encoded.clear();
+
+    /* Iterate over all patterns in the CT, sorted descending by size */
+    m_ct->sortBySizeDesc();
+    for( Pattern* p : *m_ct ) {
+
+        p->setActive( false );
+        p->usage() =0;
+
+        for( int j =0; j < m_mat->width(); j++ ) {
+            for( int i =0; i < m_mat->height(); i++ ) {
+                Coord2D c =m_mat->makeCoord( i, j );
+
+                /* Test if p fits the matrix at pivot c */
+                if( p->apply( m_mat, c, false ) ) {
+                    p->apply( m_mat, c, true );
+
+                    p->usage()++;
+                    p->setActive( true );
+                    m_encoded.emplace_back( p, c, m_es->makeNullVariant(), false );
+                }
+            }
+        }
+    }
+    std::sort( m_encoded.begin(), m_encoded.end() );
+    m_mat->unflagAll();
+    updateCodeLengths();
+}
+
+Matrix2D* 
+Encoder::decode() {
 
 }
 
@@ -426,7 +462,6 @@ Encoder::mergePatterns( const Candidate* c ) {
     m_encoded.unflagAll();
 
     printf( "Actual usage: %d, actual dimensions %d x %d\n", p_union->usage(), p_union->bounds().width, p_union->bounds().height );
-    
 }
 
 double

@@ -32,6 +32,7 @@ protected:
 
 private slots:
     void vouwItemDoubleClicked(const QModelIndex&);
+    void reencodeCurrent();
 
 private:
     void updateConsole();

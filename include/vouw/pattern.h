@@ -116,6 +116,10 @@ class Pattern {
         bool isInside( const OffsetT& offs ) const;
         bool isCanonical() const;
 
+        /* Functions that apply or test a pattern against a matrix */
+
+        bool apply( Matrix2D* mat, const Coord2D& pivot, bool flag =false );
+
         /** Returns a reference to the list of elements */
         ListT& elements() { return m_elements; }
         const ListT& elements() const { return m_elements; }

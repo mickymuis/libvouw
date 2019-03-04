@@ -18,6 +18,11 @@ MainWindow::MainWindow() : QMainWindow(), currentItem( 0 )
 {
   //  QGridLayout *mainLayout = new QGridLayout;
     vouwModel = new VouwItemModel( this );
+    
+    /* Create instance of the vouw viewer widget */
+    vouwWidget = new MatrixWidget( this );
+    
+    setCentralWidget(vouwWidget);
 
     /* Prepare main window actions */
     QAction* actImportImage = new QAction(tr("&Import Image"), this);
@@ -34,6 +39,11 @@ MainWindow::MainWindow() : QMainWindow(), currentItem( 0 )
     actShowProg->setCheckable( true );
     connect( actShowProg, &QAction::toggled, [=]( bool checked ){ showProgress =checked; } );
     actShowProg->setChecked( true );
+    
+    QAction* actHideSinglt = new QAction(tr("Hide singletons"), this );
+    actHideSinglt->setCheckable( true );
+    connect( actHideSinglt, &QAction::toggled, [=]( bool checked ){ vouwWidget->setOption( MatrixWidget::HideSingletons, checked ); } );
+    actHideSinglt->setChecked( true );
     
     QAction* actZoomIn = new QAction(tr("Zoom in"), this );
     actZoomIn->setShortcut( QKeySequence::ZoomIn );
@@ -52,6 +62,9 @@ MainWindow::MainWindow() : QMainWindow(), currentItem( 0 )
     QAction* actResetView = new QAction(tr("Reset view"), this );
     connect( actResetView, &QAction::triggered, [=]( void ){ vouwWidget->zoomFill(); vouwWidget->setPan(0,0); } );
     
+    QAction* actReencode = new QAction(tr("Re-encode"), this );
+    connect( actReencode, &QAction::triggered, this, &MainWindow::reencodeCurrent );
+    
     /* Menubar */
     QMenu* fileMenu = menuBar()->addMenu(tr("&File"));
     fileMenu->addAction(actImportImage);
@@ -60,6 +73,7 @@ MainWindow::MainWindow() : QMainWindow(), currentItem( 0 )
 
     QMenu* viewMenu = menuBar()->addMenu(tr("&View"));
     viewMenu->addAction(actShowProg);
+    viewMenu->addAction(actHideSinglt);
     viewMenu->addSeparator();
     viewMenu->addAction(actZoomIn);
     viewMenu->addAction(actZoomOut);
@@ -68,10 +82,8 @@ MainWindow::MainWindow() : QMainWindow(), currentItem( 0 )
     viewMenu->addSeparator();
     viewMenu->addAction(actResetView);
     
-    /* Create instance of the vouw viewer widget */
-    vouwWidget = new MatrixWidget( this );
-    
-    setCentralWidget(vouwWidget);
+    QMenu* toolsMenu = menuBar()->addMenu(tr("&Tools"));
+    toolsMenu->addAction( actReencode );
 
 //    setLayout(mainLayout);
     /* List panel */
@@ -221,4 +233,20 @@ MainWindow::vouwItemDoubleClicked( const QModelIndex& index ) {
     if( !item ) return;
 
     setCurrentItem( item );
+}
+
+void
+MainWindow::reencodeCurrent() { 
+    if( !currentItem ) return;
+
+    Vouw::Encoder* v =currentItem->object();
+    if( !v ) return;
+
+    if( !v->isEncoded() ) return;
+
+    v->reencode();
+    vouwWidget->showEncoded( v );
+    std::cout << "Compression ratio: " << std::setprecision(4) << v->ratio() * 100.0 << "%" << std::endl;
+    std::cout << "Model: " << v->codeTable()->countIfActive() << " patterns, Instance Set: " << v->instanceSet()->size() << " regions." << std::endl;
+
 }

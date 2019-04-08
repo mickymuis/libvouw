@@ -3,7 +3,44 @@
 VOUW Project Journal
 ====================
 
-## (Re-)encoding with a given codetable (update 4-3-2019)
+
+## Encoding, current state of affairs (updated 8-4-2019)
+
+In the current encoding schema I encode the model H (set of patterns) separately from the data given the model D|H (instance matrix Hbar) with two different coding schemes. The instance matrix is encoded using the prequential plug-in code (derivation in draft paper), while I use the universal prior and the uniform distribution for encoding the model. 
+
+In order to make the computation of the prequential plug-in code as fast as possible, I have rearranged the formula in a way such that only simple logarithms of the gamma function remained. To compute this in the actual code I use LIBC's `lgamma()`, which I divide by `log(2)` in order to obtain the log2gamma. The actual equation then looks like this:
+
+```
+L( D|H ) =
+    log2gamma( |Hbar| + epsilon * |H| ) - log2gamma( epsilon * |H| ) +
+    [ -log2gamma( U(X) + epsilon ) + log2gamma( epsilon ) ] forall X in H
+```
+
+The model is computed fairly easily by first encoding the total number of patterns and then encoding each pattern.
+
+```
+L( H ) = L_N( |H| ) + L( X ) forall X in H
+```
+
+For each pattern we encode the string of elements plus the binomium of the total number of elements over the number of non-empty elements. This way we effectively enumerate all possible ways `|X|` non-empty elements can be distributed over the bounding-box of the pattern.
+
+```
+L( X ) =
+    log2( M ) + log2( N ) + binom( width*height, |X| ) +
+    log2( b-1 ) * |X|
+```
+
+Note how I changed the equation to use M and N (the dimensions of the input matrix) to uniformly encode the pattern's bounding box as opposed to using the universal prior (which may give undue penalty to larger patterns). Another change I made is that the last term (log2(b-1) * |X|) effectively disappears when the matrix is binary. This work in all cases because we treat one value as the empty value anyway.
+
+Given this knowledge, the binomium term could also effectively be replaced by adding the empty value back to the uniform distribution. The length function for patterns would then look like this:
+
+```
+L( X ) =  log2( M ) + log2( N ) + log2( b ) * |X|
+```
+
+This change makes the algorithm continue slightly longer on small matrices, however, sparse patterns are not penalized in this way. Whether or not this is a problem remains to be seen. All in all the subjective quality of the results differ very little with either method as the algorithm still 'stops too soon'.
+
+## (Re-)encoding with a given codetable (updated 4-3-2019)
 
 When a dataset is encoded using a given codetable, certain decisions have to be made during this process. There is often more than one possiblity for 'fitting' patterns to a dataset and choices made here can affect the compression ratio dramatically. One example is that if patterns are greedily placed to cover a dataset, previously placed patterns might be 'in the way' of placing a (possibly better fitting) pattern at a location that would otherwise give a good description of the data.
 

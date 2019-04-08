@@ -482,7 +482,10 @@ Encoder::computeCandidateEntryLength( const Candidate* c, bool debugPrint ) {
     bounds.computeDimensions();
 
     double bits = c->p1->entryValuesLength() + c->p2->entryValuesLength();
-    bits += Pattern::entryOffsetsLength( bounds.width, bounds.height, c->p1->size() + c->p2->size() );
+    bits += Pattern::entryOffsetsLength( bounds.width, 
+                                         bounds.height, 
+                                         c->p1->size() + c->p2->size(), 
+                                         m_mat->width(), m_mat->height() );
 
 //    printf( "New pattern bounds wxh: %d x %d\n", bounds.width, bounds.height );
     return bits;

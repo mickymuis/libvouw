@@ -35,12 +35,12 @@ void CodeTable::updateCodeLengths( int totalInstances, const MassFunction& distr
     int ctSize =countIfActive();
 
     double ct_bits =uintCodeLength( ctSize );
-    double inst_bits = uintCodeLength( m_width )
+    /*double inst_bits = uintCodeLength( m_width )
                      + uintCodeLength( m_height )
                      + log2( m_width * m_height )
-                     ;//+ uintCodeLength( binom( m_width * m_height, totalInstances ) );
+                     ;*///+ uintCodeLength( binom( m_width * m_height, totalInstances ) );
 
-    inst_bits += lgamma( (double)totalInstances + pseudoCount * (double)ctSize ) / log(2)
+    double inst_bits = lgamma( (double)totalInstances + pseudoCount * (double)ctSize ) / log(2)
                - lgamma( pseudoCount * (double)ctSize ) / log(2); 
 
     for( auto p : *this ) {
@@ -49,7 +49,7 @@ void CodeTable::updateCodeLengths( int totalInstances, const MassFunction& distr
             if( p->entryLength() != 0.0 )
                 ct_bits += p->entryLength();
             else
-                ct_bits += p->updateEntryLength( distr );
+                ct_bits += p->updateEntryLength( distr, m_width, m_height );
         } else
             p->updateCodeLength( totalInstances, ctSize );
         //m_bits += p->size() * m_stdBitsPerOffset;

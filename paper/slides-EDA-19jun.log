@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.17 (TeX Live 2016/Debian) (preloaded format=pdflatex 2017.12.30)  19 JUN 2018 11:08
+This is pdfTeX, Version 3.14159265-2.6-1.40.17 (TeX Live 2016/Debian) (preloaded format=pdflatex 2018.10.4)  14 MAR 2019 16:38
 entering extended mode
  \write18 enabled.
  %&-line parsing enabled.
@@ -1907,8 +1907,8 @@ Package rerunfilecheck Info: File `slides-EDA-19jun.out' has not changed.
  ) 
 Here is how much of TeX's memory you used:
  24987 strings out of 494317
- 480284 string characters out of 6163511
- 605168 words of memory out of 5000000
+ 480286 string characters out of 6163512
+ 605165 words of memory out of 5000000
  27660 multiletter control sequences out of 15000+600000
  58574 words of font info for 78 fonts, out of 8000000 for 9000
  372 hyphenation exceptions out of 8191
@@ -1929,7 +1929,7 @@ s/type1/public/lm/lmmi6.pfb></usr/share/texmf/fonts/type1/public/lm/lmmi8.pfb><
 hare/texmf/fonts/type1/public/lm/lmssbx10.pfb></usr/share/texmf/fonts/type1/pub
 lic/lm/lmsso10.pfb></usr/share/texmf/fonts/type1/public/lm/lmsso8.pfb></usr/sha
 re/texlive/texmf-dist/fonts/type1/urw/zapfding/uzdr.pfb>
-Output written on slides-EDA-19jun.pdf (19 pages, 3939800 bytes).
+Output written on slides-EDA-19jun.pdf (19 pages, 3939656 bytes).
 PDF statistics:
  213 PDF objects out of 1000 (max. 8388607)
  164 compressed objects within 2 object streams

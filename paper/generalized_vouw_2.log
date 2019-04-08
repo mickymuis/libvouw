@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.17 (TeX Live 2016/Debian) (preloaded format=pdflatex 2018.10.4)  1 DEC 2018 12:48
+This is pdfTeX, Version 3.14159265-2.6-1.40.17 (TeX Live 2016/Debian) (preloaded format=pdflatex 2018.10.4)  21 MAR 2019 18:07
 entering extended mode
  \write18 enabled.
  %&-line parsing enabled.
@@ -309,9 +309,9 @@ Package etexcmds Info: Could not find \expanded.
 (etexcmds)             In the latter case, load this package earlier.
 ))
 \verbatim@out=\write3
-runsystem(touch w18-test-2018121768.tex)...executed.
+runsystem(touch w18-test-20193211087.tex)...executed.
 
-runsystem(rm -f w18-test-2018121768.tex)...executed.
+runsystem(rm -f w18-test-20193211087.tex)...executed.
 
 runsystem(rm -f "generalized_vouw_2.gnuploterrors")...executed.
 
@@ -870,7 +870,7 @@ LaTeX Warning: There were undefined references.
  ) 
 Here is how much of TeX's memory you used:
  17181 strings out of 494317
- 334675 string characters out of 6163512
+ 334676 string characters out of 6163512
  429963 words of memory out of 5000000
  20061 multiletter control sequences out of 15000+600000
  17087 words of font info for 107 fonts, out of 8000000 for 9000

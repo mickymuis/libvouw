@@ -15,16 +15,22 @@ VOUW_NAMESPACE_BEGIN
 
 class Coord2D {
     public:
-        Coord2D( int row, int col, int rowLength =0 ) : m_row(row), m_col(col), m_rowLength(rowLength) {}
-        Coord2D() : m_row(0), m_col(0) {}
+        typedef struct {
+            int row,col;
+        } PairT;
 
-        void setRow( int row) { m_row =row; }
-        int row() const { return m_row; }
+        PairT m;
 
-        void setCol( int col) { m_col =col; }
-        int col() const { return m_col; }
+        Coord2D( int row, int col, int rowLength =0 ) : m( {row,col} ), m_rowLength(rowLength) {}
+        Coord2D() : m( {0,0} ) {}
 
-        bool isZero() { return m_row == 0 && m_col == 0; }
+        void setRow( int row) { m.row =row; }
+        int row() const { return m.row; }
+
+        void setCol( int col) { m.col =col; }
+        int col() const { return m.col; }
+
+        bool isZero() { return m.row == 0 && m.col == 0; }
 
         void setRowLength( int rowLength ) { m_rowLength = rowLength; } 
         int rowLength() const { return m_rowLength; }
@@ -32,7 +38,7 @@ class Coord2D {
         virtual int position() const;
 
     private:
-        int m_row, m_col, m_rowLength;
+        int m_rowLength;
 
 };
 

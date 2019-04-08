@@ -71,6 +71,8 @@ Pattern::Pattern( const Pattern& p ) {
     m_active = p.m_active;
     m_tabu = p.m_tabu;
     m_composition = p.m_composition;
+    for( int i =0; i < 2; i++ )
+        m_periphery[i] = p.m_periphery[i];
 }
 
 Pattern::Pattern( const Matrix2D::ElementT& value, int rowLength ) 
@@ -82,6 +84,7 @@ Pattern::Pattern( const Matrix2D::ElementT& value, int rowLength )
     m_bounds ={ 0,0,0,0,1,1 };
     m_composition = { 0, 0, 0, 0, OffsetT() };
     m_elements.push_back( { OffsetT(0,0,rowLength), value } );
+    recomputePeriphery();
 }
 
 Pattern::Pattern( const Pattern& p1, const Pattern& p2, const OffsetT& offs )
@@ -92,6 +95,7 @@ Pattern::Pattern( const Pattern& p1, const Pattern& p2, const OffsetT& offs )
     m_rowLength = p1.rowLength();
     unionAdd( p1, p2, offs );
     recomputeBounds();
+    recomputePeriphery();
     m_composition = { &p1, &p2, 0, 0, offs };
 }
 
@@ -107,6 +111,7 @@ Pattern::Pattern( const Pattern& p1, const Variant& v1, const Pattern& p2, const
     v2.apply( p2v );
     unionAdd( p1v, p2v, offs );
     recomputeBounds();
+    recomputePeriphery();
     m_composition = { &p1, &p2, &v1, &v2, offs };
 }
 
@@ -131,23 +136,20 @@ Pattern::updateCodeLength( int totalInstances, int modelSize ) {
 }
 
 double 
-Pattern::entryOffsetsLength( int patternWidth, int patternHeight, int size ) {
-    return /*size * log2( patternWidth * patternHeight ) 
-         +*/ /*uintCodeLength( patternWidth )
-         + uintCodeLength( patternHeight )
-         + uintCodeLength( binom( (patternWidth*patternHeight), size ) )
-         + log2(patternWidth * patternHeight); */       // empty cells take one bit
-        +0;// + uintCodeLength( size );
+Pattern::entryOffsetsLength( int patternWidth, int patternHeight, int size, int matrixWidth, int matrixHeight ) {
+    return log2( matrixHeight ) // Uniform distribution for the height of the pattern
+         + log2( matrixWidth )  // ... for the width of the pattern
+                                // We use the binomium to enumerate all possible combinations of
+                                // empty and non-empty elements.
+       ;//  + uintCodeLength( binom( (patternWidth*patternHeight), size ) );
 }
 
 double 
-Pattern::updateEntryLength( const MassFunction& dist ) {
+Pattern::updateEntryLength( const MassFunction& dist, int matrixWidth, int matrixHeight ) {
  //   return (m_entryBits = entryLength( m_bounds.width, m_bounds.height, base, size() ));
 
-    m_entryOffsetsBits = entryOffsetsLength( m_bounds.width, m_bounds.height, size() );
+    m_entryOffsetsBits = entryOffsetsLength( m_bounds.width, m_bounds.height, size(), matrixWidth, matrixHeight  );
     
-    m_entryValuesBits =0.0;
-
     m_entryValuesBits = log2( dist.uniqueElements() ) * size();
     /*MassFunction f;
     for( auto&& elem : m_elements ) {
@@ -269,6 +271,12 @@ Pattern::apply( Matrix2D* mat, const Coord2D& pivot, bool flag ) {
     return true;
 }
 
+
+const Pattern::PeripheryT& 
+Pattern::periphery( PeripheryPosition p ) const {
+    return m_periphery[p];
+}
+
 void
 Pattern::debugPrint() const {
     printf( "Pattern #%d, bounds {%d, %d, %d, %d, %d, %d}\n", label(),
@@ -319,6 +327,56 @@ Pattern::unionAdd( const Pattern& p1, const Pattern& p2, const OffsetT& offs ) {
     }
 
     assert( elements().size() == p1.elements().size() + p2.elements().size() );
+}
+
+/** Computes the coordinates of all immediate adjacent elements in the pattern's coordinate space 
+ *  The result is stored for future use.*/
+void
+Pattern::recomputePeriphery() {
+    m_periphery[0].clear(); m_periphery[1].clear();
+    const int rows =m_bounds.height, cols =m_bounds.width;
+
+    /* First we determine the first and last columns for each row in the pattern */
+    enum { FirstCol, LastCol };
+    int columns[rows][2];
+    int curRow =-1, curCol;
+
+    for( auto&& elem : elements() ) {
+        OffsetT of = elem.offset;
+        int row =of.row() - m_bounds.rowMin;
+        if( row == curRow ) {
+            columns[row][LastCol] = of.col();
+            // If these elements are not adjacent, we need to fill the 'gaps'
+            if( of.col() != curCol + 1 ) {
+                for( int j =curCol+1; j < of.col(); j++ )
+                    m_periphery[PosteriorPeriphery].push_back( OffsetT( curRow, j, m_rowLength ) );
+            }
+            curCol =of.col();
+        } else {
+            curRow =row;
+            curCol =of.col();
+            columns[row][LastCol] = of.col();
+            columns[row][FirstCol] = of.col();
+        }
+    }
+
+    // Create the periphery based on the first and last columns calculated above
+    for( int i =0; i < rows; i++ ) {
+        int lastCol = columns[i][LastCol];
+        int maxCol = std::max( i == 0 ? lastCol : columns[i-1][LastCol], i >= rows-1 ? lastCol : columns[i+1][LastCol] );
+        int row =i + m_bounds.rowMin;
+
+        for( int j =lastCol; j <= std::max( maxCol, lastCol ); j++ )
+            m_periphery[PosteriorPeriphery].push_back( OffsetT( row, j+1, m_rowLength ) );
+    }
+
+    {
+        int firstCol = columns[rows-1][FirstCol] -1, lastCol = columns[rows-1][LastCol]+1;
+        for( int j =firstCol; j <= lastCol ; j++ )
+            m_periphery[PosteriorPeriphery].push_back( OffsetT( m_bounds.rowMax+1, j, m_rowLength ) );
+
+    }
+
 }
 
 VOUW_NAMESPACE_END

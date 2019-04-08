@@ -12,7 +12,7 @@
 
 VOUW_NAMESPACE_BEGIN
 
-const double pseudoCount =1.0;
+const double pseudoCount =.5;
 
 /** Returns the length of the Universal Code for Integers
   * It is defined as log2*(n) + log2(c) 

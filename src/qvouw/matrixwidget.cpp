@@ -2,6 +2,7 @@
 #include <QPainter>
 #include <QMouseEvent>
 #include <QMap>
+#include <QGuiApplication>
 #include <iostream>
 
 MatrixWidget::MatrixWidget( QWidget *parent ) : QWidget( parent ) {
@@ -10,6 +11,8 @@ MatrixWidget::MatrixWidget( QWidget *parent ) : QWidget( parent ) {
     vs =NULL;
     setBackgroundRole(QPalette::Dark);
     setAutoFillBackground(true);
+    selectionCenter = QPoint(-1,-1);
+    selectionBrush = QBrush( QGuiApplication::palette().color( QPalette::Active, QPalette::Highlight ), Qt::Dense2Pattern );
 }
 
 MatrixWidget::~MatrixWidget() {}
@@ -125,7 +128,6 @@ MatrixWidget::paintEvent( QPaintEvent *event ) {
     float stroke =.0f;
 
     /* We will draw each element as a 1x1 rect, which directly gives us the window size */
-    QRect window;
     if( mode == InputMatrix ) {
         //window =QRect( -data.mat->width()/2, -data.mat->height()/2, data.mat->width(), data.mat->height() );
         window =QRect( 0, 0, data.mat->width(), data.mat->height() );
@@ -154,19 +156,20 @@ MatrixWidget::paintEvent( QPaintEvent *event ) {
         s = w / window.width();
     }
 
+    viewport = painter.viewport();
+
     /* Update the size of the displayed content and some properties of it */
     
     pixelSize = s * vs->zoom;   // size of one element in device pixels
     worldSize = QSize( pixelSize * window.width(), pixelSize * window.height() ); // size of image in device pixels
+    selectionBrush.setTransform( QTransform::fromScale( 1.0/pixelSize, 1.0/pixelSize ) );
 
     if( s * vs->zoom > 6.f ) {
         stroke =1.f / pixelSize;
         painter.setRenderHint( QPainter::Antialiasing, true );
     } else {
         painter.setRenderHint( QPainter::Antialiasing, false );
-
     }
-
 
     /* Apply transformations */
 
@@ -201,41 +204,55 @@ MatrixWidget::paintEvent( QPaintEvent *event ) {
 
             for( int j = (int)clip.left(); j < qMin(data.mat->width(), (unsigned int)clip.right()+1); ++j ) {
                 QRectF rect( j+stroke, i+stroke, 1-stroke, 1-stroke );
-                QColor color = colorValue( row[j], data.mat->base() );
+                //QColor color;
+                
+                if( hasSelection() && rect.contains( selectionCenter ) ) 
+                     painter.setBrush( selectionBrush );  
+                else painter.setBrush( colorValue( row[j], data.mat->base() ) );
 
-                painter.fillRect( rect, color );
+                painter.fillRect( rect, painter.brush() );
             }
         }
     } else { 
 
-        painter.setPen( QPen( Qt::black,stroke ) );
         QMap<int, QPolygonF> patternPoly;
+        const Vouw::Region* selectedInstance =NULL;
 
-        for( auto&& region : *data.enc->instanceSet() ) {
+        for( auto&& instance : *data.enc->instanceSet() ) {
 
-            Vouw::Pattern* p =region.pattern();
+            Vouw::Pattern* p =instance.pattern();
             if( p->isTabu() || (p->size() == 1 && opts & HideSingletons) )
                 continue;
             
             QColor color;
             QPolygonF poly;
             color = colorLabel( p->label() );
+            bool isSelected =false;
             painter.setBrush( color );
+            painter.setPen( QPen( Qt::black,stroke ) );
 
             if( stroke != .0f ) {
                 poly = patternPoly[p->label()];
             }
 
             if( stroke == .0f || poly.isEmpty() ) {
+REDRAW_PATTERN:
                 for( auto&& elem : p->elements() ) {
                     Vouw::Coord2D c; 
                     
                     if( stroke == .0f ) {
                         // For each offset, compute its absolute location
-                        c = elem.offset.abs( region.pivot() );
+                        c = elem.offset.abs( instance.pivot() );
                     
                         QRectF rect( QPointF( c.col(), c.row() ), QPointF( c.col() + 1, c.row() + 1 ) );
-                        painter.fillRect( rect, color );
+
+                        if( !isSelected && hasSelection() && rect.contains( selectionCenter ) ) {
+                            isSelected =true;
+                            painter.setBrush( selectionBrush );
+                            goto REDRAW_PATTERN;
+                        }
+
+                        painter.fillRect( rect, painter.brush() );
                     } else {
                         // Use the relative location within the pattern
                         c = elem.offset;
@@ -252,8 +269,28 @@ MatrixWidget::paintEvent( QPaintEvent *event ) {
 
             if( stroke != .0f ) {
                 patternPoly[p->label()] = poly;
-                poly.translate( region.pivot().col(), region.pivot().row() );
+                poly.translate( instance.pivot().col(), instance.pivot().row() );
+                if( hasSelection() && poly.containsPoint( selectionCenter, Qt::WindingFill ) ) {
+                    isSelected =true;
+                    painter.setBrush( selectionBrush );
+                }
                 painter.drawPolygon( poly );
+            }
+            if( isSelected ) {
+                selectedInstance =&instance;
+            }
+            if( opts & ShowPivots ) {
+                QPointF center( instance.pivot().col() + 0.5, instance.pivot().row() + 0.5 );
+                painter.setPen( QPen( Qt::red,.2 ) );
+                painter.drawPoint( center );
+            }
+        }
+        if( selectedInstance && opts & ShowPeriphery ) {
+            const Vouw::Pattern::PeripheryT& post =selectedInstance->pattern()->periphery( Vouw::Pattern::PosteriorPeriphery );
+            painter.setPen( QPen( Qt::black,stroke ) );
+            for( auto &&offset : post ) {
+                Vouw::Coord2D c = offset.abs( selectedInstance->pivot() );
+                drawCross( painter, QPoint( c.col(), c.row() ) );
             }
         }
     }
@@ -269,6 +306,7 @@ void
 MatrixWidget::mousePressEvent(QMouseEvent *event)
 {
     lastPos = event->pos();
+    hasSelectionEvent =true;
 }
 
 void 
@@ -277,16 +315,16 @@ MatrixWidget::mouseMoveEvent(QMouseEvent *event)
     int dx = event->x() - lastPos.x();
     int dy = event->y() - lastPos.y();
 
+    if( qMax( abs(dx), abs(dy) ) < 8 ) return; // Arbitrary movement treshold
+
     float precision =1.f / pixelSize;
 
     if (event->buttons() & Qt::LeftButton) {
-        //rotateBy(8 * dy, 8 * dx, 0);
         panBy( (float)dx * precision, (float)dy * precision );
     } else if (event->buttons() & Qt::RightButton) {
-   //     rotateBy(8 * dy, 8 * dx, 0);
-        //rotateBy(8 * dy, 0, 8 * dx);
         zoomFit();
     }
+    hasSelectionEvent =false;
     lastPos = event->pos();
 }
 
@@ -307,6 +345,21 @@ MatrixWidget::wheelEvent(QWheelEvent *event) {
 void 
 MatrixWidget::mouseReleaseEvent(QMouseEvent * /* event */)
 {
+    // See if the user has clicked us with the intention of selecting something
+    if( hasSelectionEvent ) {
+        // Get the click position and transform it to a world space coordinate
+        QPointF c = lastPos;
+        
+        c /= pixelSize;
+        c -= QPointF( vs->xPan, vs->yPan );
+        c += QPointF( (window.width() / 2.f) , (window.height() / 2.f) );
+        c += QPointF( -(window.width() / 2.f) / vs->zoom, -(window.height() / 2.f) / vs->zoom );
+        c += QPointF( -viewport.left() / pixelSize, -viewport.top() / pixelSize );
+
+        selectionCenter =c;
+
+        update();
+    }
     emit clicked();
 }
 
@@ -328,10 +381,18 @@ MatrixWidget::colorValue( Vouw::Matrix2D::ElementT value, int base ) {
 }
 
 void 
+MatrixWidget::drawCross( QPainter& painter, QPoint pos ) {
+    painter.drawLine( pos, pos+QPoint(1,1) );
+    painter.drawLine( pos+QPoint(1,0), pos+QPoint(0,1) );
+}
+
+void 
 MatrixWidget::setViewstate( void* ptr ) {
     if( !viewstateHistory.contains( ptr ) ) {
         vs = &viewstateHistory[ptr];
         *vs = { .zoom =1.f, .yPan =.0f, .xPan =.0f };
     } else
         vs = &viewstateHistory[ptr];
+    // For now...
+    selectionCenter = QPoint(-1,-1);
 }

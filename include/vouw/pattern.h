@@ -56,7 +56,7 @@ class Pattern {
             }
         };
         /** When a pattern is constructed using one of the union constructors,
-         * this type is used to store the original composition of the pattern */
+         *  this type is used to store the original composition of the pattern */
         struct CompositionT {
             const Pattern *p1, *p2;
             const Variant *v1, *v2;
@@ -64,6 +64,14 @@ class Pattern {
 
             bool isValid() const { return p1 && p2; }
         };
+        /** The pattern's periphery is the set of the immediate adjacent elements 
+         *  that surround a pattern in the data. We distinguish between the elements
+         *  that come before it (anterior) and those that come after (posterior). */
+        enum PeripheryPosition {
+            AnteriorPeriphery, PosteriorPeriphery
+        };
+        typedef std::vector<OffsetT> PeripheryT;
+
         typedef std::pair<Pattern*,Variant*> EquivalenceT;
         typedef std::vector<EquivalenceT> EquivalenceListT;
 
@@ -101,8 +109,8 @@ class Pattern {
         static double codeLength( int usage, int totalInstances, int modelSize );
         double updateCodeLength( int totalInstances, int modelSize );
         double codeLength() const { return m_codeBits; }
-        static double entryOffsetsLength( int patternWidth, int patternHeight, int size );
-        double updateEntryLength( const MassFunction& distribution );
+        static double entryOffsetsLength( int patternWidth, int patternHeight, int size, int matrixWidth, int matrixHeight );
+        double updateEntryLength( const MassFunction& distribution, int matrixWidth, int matrixHeight );
         double entryLength() const { return m_entryOffsetsBits + m_entryValuesBits; }
         double entryOffsetsLength() const { return m_entryOffsetsBits; }
         double entryValuesLength() const { return m_entryValuesBits; }
@@ -120,6 +128,9 @@ class Pattern {
 
         bool apply( Matrix2D* mat, const Coord2D& pivot, bool flag =false );
 
+        /* Functions that interact with the pattern's periphery */
+        const PeripheryT& periphery( PeripheryPosition p = AnteriorPeriphery ) const;
+
         /** Returns a reference to the list of elements */
         ListT& elements() { return m_elements; }
         const ListT& elements() const { return m_elements; }
@@ -132,6 +143,7 @@ class Pattern {
 
     private:
         void unionAdd( const Pattern& p1, const Pattern& p2, const OffsetT& );
+        void recomputePeriphery();
         ListT m_elements;
         BoundsT m_bounds;
         int m_usage;
@@ -143,30 +155,9 @@ class Pattern {
         bool m_active;
         bool m_tabu;
         CompositionT m_composition;
+        PeripheryT m_periphery[2];
 };
 
 inline bool pattern_is_active( const Pattern* p ) { return p->isActive(); }
-
-/*class Composition {
-    public:
-        Composition( const Pattern* p1, const Pattern* p2, const Variant& v1, const Variant& v2, const Pattern::OffsetT& offset );
-        Composition();
-        ~Composition() {}
-
-        Pattern* p1() { return m_p1; }
-        const Pattern* p1() const { return m_p1; }
-        Pattern* p2() { return m_p2; }
-        const Pattern* p2() const { return m_p2; }
-
-        const Pattern::OffsetT& offset() const { return m_offset; }
-
-        const Variant& v1() const { return m_v1; }
-        const Variant& v2() const { return m_v2; }
-
-    private:
-        Pattern *m_p1, *m_p2;
-        Variant m_v1, m_v2;
-        Pattern::OffsetT m_offset;
-};*/
 
 VOUW_NAMESPACE_END

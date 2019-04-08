@@ -45,6 +45,16 @@ MainWindow::MainWindow() : QMainWindow(), currentItem( 0 )
     connect( actHideSinglt, &QAction::toggled, [=]( bool checked ){ vouwWidget->setOption( MatrixWidget::HideSingletons, checked ); } );
     actHideSinglt->setChecked( true );
     
+    QAction* actShowPivots = new QAction(tr("Show pivots"), this );
+    actShowPivots->setCheckable( true );
+    connect( actShowPivots, &QAction::toggled, [=]( bool checked ){ vouwWidget->setOption( MatrixWidget::ShowPivots, checked ); } );
+    actShowPivots->setChecked( false );
+
+    QAction* actShowPeriph = new QAction(tr("Show peripheries"), this );
+    actShowPeriph->setCheckable( true );
+    connect( actShowPeriph, &QAction::toggled, [=]( bool checked ){ vouwWidget->setOption( MatrixWidget::ShowPeriphery, checked ); } );
+    actShowPeriph->setChecked( true );
+
     QAction* actZoomIn = new QAction(tr("Zoom in"), this );
     actZoomIn->setShortcut( QKeySequence::ZoomIn );
     connect( actZoomIn, &QAction::triggered, [=]( void ){ vouwWidget->zoomStepIn(); } );
@@ -74,6 +84,8 @@ MainWindow::MainWindow() : QMainWindow(), currentItem( 0 )
     QMenu* viewMenu = menuBar()->addMenu(tr("&View"));
     viewMenu->addAction(actShowProg);
     viewMenu->addAction(actHideSinglt);
+    viewMenu->addAction(actShowPivots);
+    viewMenu->addAction(actShowPeriph);
     viewMenu->addSeparator();
     viewMenu->addAction(actZoomIn);
     viewMenu->addAction(actZoomOut);

@@ -11,7 +11,7 @@ class MatrixWidget : public QWidget {
 Q_OBJECT
 public:
     enum Mode { None, InputMatrix, InstanceMatrix, Pattern };
-    enum Option { HideSingletons =1 };
+    enum Option { HideSingletons =1, ShowPivots =2, ShowPeriphery =4 };
 
     MatrixWidget( QWidget *parent =0 );
     ~MatrixWidget();
@@ -25,6 +25,8 @@ public:
 
     void setOption( Option, bool active );
     bool hasOption( Option ) const;
+
+    bool hasSelection() const { return selectionCenter != QPoint(-1,-1); }
 
     QSize minimumSizeHint() const override;
     QSize sizeHint() const override;
@@ -49,6 +51,7 @@ protected:
 private:
     QColor colorLabel( int label );
     QColor colorValue( Vouw::Matrix2D::ElementT value, int base );
+    void drawCross( QPainter& painter, QPoint pos );
     int mode, opts;
     union data_t {
         Vouw::Matrix2D* mat;
@@ -57,12 +60,17 @@ private:
     QSize worldSize;
     qreal pixelSize;
     QPoint lastPos;
+    QPointF selectionCenter;
+    bool hasSelectionEvent;
+    QBrush selectionBrush;
 
     struct viewstate_t {
         float zoom, yPan, xPan;
     };
 
     struct viewstate_t *vs;
+    QRect window;
+    QRect viewport;
 
     void setViewstate( void* ptr );
     QMap<void*, struct viewstate_t> viewstateHistory;

@@ -4,6 +4,22 @@ VOUW Project Journal
 ====================
 
 
+## Amending the instance matrix data struture (updated 14-4-2019 )
+
+
+
+| Test set              | Patterns | Iterations | Time          |
+|-----------------------|---------:|-----------:|--------------:|
+| noisytriangles512  (a)|       24 |         27 |        11.9 s |
+| noisytriangles512  (b)|       24 |         31 |         1.8 s |
+| noisytriangles512  (c)|          |            |               |
+| smileys512 (a)        |       18 |        982 |        21.5 s |
+| smileys512 (b)        |       24 |        967 |         1.8 s |
+| smileys512 (c)        |          |            |               |
+| turing2048 (a)        |        ? |          ? |        ~60 h  |
+| turing2048 (b)        |       30 |       4981 |        75 min |
+| turing2048 (c)        |          |            |               |
+
 ## Encoding, current state of affairs (updated 8-4-2019)
 
 In the current encoding schema I encode the model H (set of patterns) separately from the data given the model D|H (instance matrix Hbar) with two different coding schemes. The instance matrix is encoded using the prequential plug-in code (derivation in draft paper), while I use the universal prior and the uniform distribution for encoding the model. 

@@ -1,8 +1,8 @@
 /*
- * VOUW - Generating, encoding and pattern-mining of Reduce-Fold Cellular Automata
+ * VOUW - Spatial, compression-based pattern mining on matrices
  *
- * Micky Faas <micky@edukitty.org> 
- * Leiden Institute for Advanced Computer Science
+ * Micky Faas <micky@edukitty.org>
+ * (C) 2017, 2018, 2019, Leiden Institute for Advanced Computer Science
  */
 
 #pragma once

@@ -18,7 +18,8 @@ add_library (vouw STATIC
     src/vouw/vouw.cpp
     src/vouw/matrix.cpp
     src/vouw/pattern.cpp
-    src/vouw/region.cpp
+    src/vouw/instance.cpp
+    src/vouw/instance_matrix.cpp
     src/vouw/codetable.cpp
     src/vouw/equivalence.cpp
     src/vouw/massfunction.cpp

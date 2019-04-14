@@ -8,8 +8,10 @@
 #pragma once
 #include "vouw.h"
 #include "pattern.h"
-#include "region.h"
+#include "instance.h"
+#include "instance_matrix.h"
 #include "massfunction.h"
+#include "candidate.h"
 #include <map>
 
 VOUW_NAMESPACE_BEGIN
@@ -17,7 +19,6 @@ VOUW_NAMESPACE_BEGIN
 class Matrix2D;
 class EquivalenceSet;
 class CodeTable;
-struct Candidate;
 
 class Encoder {
     public:
@@ -45,7 +46,7 @@ class Encoder {
 
         Matrix2D* matrix() const { return m_mat; }
         CodeTable* codeTable() const { return m_ct; }
-        const RegionList* instanceSet() const { return &m_encoded; }
+        const InstanceList* instanceSet() const { return &m_instlist; }
         double uncompressedSize() const { return m_priorBits; }
 
         double compressedSize() const { return m_encodedBits; }
@@ -57,12 +58,16 @@ class Encoder {
         EquivalenceSet* m_es;
         Matrix2D* m_mat;
         CodeTable* m_ct;
-        RegionList m_encoded;
-        MassFunction m_massfunc;
+        InstanceList m_instlist;
+        InstanceMatrix m_instmat;
+        const MassFunction* m_massfunc;
+        CandidateMapT m_candidates;
+
         typedef std::pair<Pattern*,Variant*> PatternVariantT;
         typedef std::map<Matrix2D::ElementT,PatternVariantT> SingletonEqvMapT;
         typedef std::map<Pattern*,int> PatternUsageMapT;
         SingletonEqvMapT m_smap; // Singleton equivalence mapping
+        
         double m_priorBits;
         double m_encodedBits;
         bool m_isEncoded;
@@ -73,12 +78,12 @@ class Encoder {
     private:
         Encoder( const Encoder& ) {}
         double computeCandidateEntryLength( const Candidate*, bool debugPrint =false );
-        double computeGain( const Candidate*, int usage, bool debugPrint =false );
+        double computeGain( const Candidate*, int usage, int modelSize, bool debugPrint =false );
         double computePruningGain( const Pattern* p );
-        double computeDecompositionGain( const Pattern* p, bool debugPrint =false );
+        double computeDecompositionGain( const Pattern* p, int modelSize, bool debugPrint =false );
         void mergePatterns( const Candidate* );
         bool prunePattern( Pattern*, bool onlyZeroPattern = true );
-
+        void decompose( Instance* );
 };
 
 VOUW_NAMESPACE_END

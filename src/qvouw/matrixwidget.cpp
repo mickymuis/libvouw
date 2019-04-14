@@ -216,11 +216,11 @@ MatrixWidget::paintEvent( QPaintEvent *event ) {
     } else { 
 
         QMap<int, QPolygonF> patternPoly;
-        const Vouw::Region* selectedInstance =NULL;
+        const Vouw::Instance* selectedInstance =NULL;
 
-        for( auto&& instance : *data.enc->instanceSet() ) {
+        for( const Vouw::Instance* instance : *data.enc->instanceSet() ) {
 
-            Vouw::Pattern* p =instance.pattern();
+            Vouw::Pattern* p =instance->pattern();
             if( p->isTabu() || (p->size() == 1 && opts & HideSingletons) )
                 continue;
             
@@ -242,7 +242,7 @@ REDRAW_PATTERN:
                     
                     if( stroke == .0f ) {
                         // For each offset, compute its absolute location
-                        c = elem.offset.abs( instance.pivot() );
+                        c = elem.offset.abs( instance->pivot() );
                     
                         QRectF rect( QPointF( c.col(), c.row() ), QPointF( c.col() + 1, c.row() + 1 ) );
 
@@ -269,7 +269,7 @@ REDRAW_PATTERN:
 
             if( stroke != .0f ) {
                 patternPoly[p->label()] = poly;
-                poly.translate( instance.pivot().col(), instance.pivot().row() );
+                poly.translate( instance->pivot().col(), instance->pivot().row() );
                 if( hasSelection() && poly.containsPoint( selectionCenter, Qt::WindingFill ) ) {
                     isSelected =true;
                     painter.setBrush( selectionBrush );
@@ -277,10 +277,10 @@ REDRAW_PATTERN:
                 painter.drawPolygon( poly );
             }
             if( isSelected ) {
-                selectedInstance =&instance;
+                selectedInstance =instance;
             }
             if( opts & ShowPivots ) {
-                QPointF center( instance.pivot().col() + 0.5, instance.pivot().row() + 0.5 );
+                QPointF center( instance->pivot().col() + 0.5, instance->pivot().row() + 0.5 );
                 painter.setPen( QPen( Qt::red,.2 ) );
                 painter.drawPoint( center );
             }

@@ -49,6 +49,8 @@ bool operator<( const Coord2D&, const Coord2D& );
 bool operator>=( const Coord2D&, const Coord2D& );
 bool operator>( const Coord2D&, const Coord2D& );
 
+class MassFunction;
+
 class Matrix2D {
     public:
         typedef uint32_t ElementT;
@@ -80,11 +82,14 @@ class Matrix2D {
 
         bool checkBounds( const Coord2D& ) const;
 
+        const MassFunction& distribution( bool force_regenerate =false );
+
         bool operator==( const Matrix2D& );
 
     private:
         unsigned int m_width, m_height, m_base;
         ElementT* m_buffer;
+        MassFunction* m_massfunc;
 };
 
 VOUW_NAMESPACE_END

@@ -4,21 +4,33 @@ VOUW Project Journal
 ====================
 
 
-## Amending the instance matrix data struture (updated 14-4-2019 )
+## Amending the instance matrix data struture (updated 17-4-2019 )
 
+In the current implementation the instance matrix is stored in a single array in lexicographical order. Traversing an array in order is usually very fast because of good locality and therefore lends itself quite well to the way we search for candidates and/or encode based on a given codetable. The problem is, however, that during candidate search we need to 'look around' the current instance in two dimensions. As we do not have this spatial information encoded in the array, we have to scan the array in the vicinity of the candidate instance. While this is still fast for small matrices, it becomes excessively slow when entire rows of the matrix do not fit in cache.
 
+In light of the above issue and to accommodate for future improvements (flood-fill), I have expanded the array-based datastructure with a two-dimentional version of the instance matrix. I have picked a dictionary-of-keys representation for this, using std::unordered_map, however, future experiments may prove that other containers are better (options are: full-dense or CRS/CCS).
 
-| Test set              | Patterns | Iterations | Time          |
-|-----------------------|---------:|-----------:|--------------:|
-| noisytriangles512  (a)|       24 |         27 |        11.9 s |
-| noisytriangles512  (b)|       24 |         31 |         1.8 s |
-| noisytriangles512  (c)|          |            |               |
-| smileys512 (a)        |       18 |        982 |        21.5 s |
-| smileys512 (b)        |       24 |        967 |         1.8 s |
-| smileys512 (c)        |          |            |               |
-| turing2048 (a)        |        ? |          ? |        ~60 h  |
-| turing2048 (b)        |       30 |       4981 |        75 min |
-| turing2048 (c)        |          |            |               |
+A dictionary-of-keys (theoretically) gives constant time access to any element we want to look up, which makes it potentially much faster to look in the neighborhood of an instance. The general search algorithm has to be changed to accommodate for this though. The current implementation uses the instance's bounding box to determine if another instance is adjacent. For the new implementation I introduce the concept of a pattern's 'periphery'. This periphery contains all indices in pattern-space of elements that are considered adjacent. I also distinguish between anterior and posterior periphery: elements that belong to instances that came either before or after in lexicographical order.
+
+The periphery is constructed once for each pattern and uses the notion that each single element has 8 possible adjacencies. For the posterior periphery I have choosen the convention to use the W, SW, S and SE directions (north-east pointing towards (0,0), the see picture). This convention ensures that we see all combinations of instances just once. When the pattern-space coordinates from the periphery are transformed into (instance)matrix-space coordinates we can easily use the dictionary-of-keys to obtain the respective instances.
+
+![Posterior periphery, elements are marked with an X](periphery.png "Posterior periphery")
+
+For the implementation I debated whether to use heap-allocation for the instances and store their pointers in both the instance vector and the dictionary-of-keys, or, allocate all instances in an array and only store indices. I denote these with (b) and (c) respectively, the old implementation is (a). In the table below I have listed three experiments with all three implementations.
+
+| Test set              | Patterns | Iterations | Time          | Time per iteration |
+|-----------------------|---------:|-----------:|--------------:| ------------------:|
+| noisytriangles512  (a)|       24 |         27 |        11.9 s |                    |
+| noisytriangles512  (b)|       24 |         31 |         1.8 s |                    |
+| noisytriangles512  (c)|       24 |         31 |         1.6 s |                    |
+| smileys512 (a)        |       18 |        982 |        21.5 s |                    |
+| smileys512 (b)        |       24 |        967 |         1.8 s |                    |
+| smileys512 (c)        |       24 |        974 |         2.2 s |                    |
+| turing2048 (a)        |        ? |          ? |        ~60 h  | 4600 ms            |
+| turing2048 (b)        |       31 |       5419 |        76 min | 846 ms             |
+| turing2048 (c)        |       31 |       5044 |        60 min | 719 ms             |
+
+For the smaller matrices the difference in performance is already quite noticeable. I had to create a new, larger example (turing2048, a 2048x2048 image) to outline the enormous difference in scaling behaviour. Furthermore it appears that the index-based implementation is slightly faster than the pointer-based version, which is not all that suprising as the pointer indirection is time-consuming and hinders some compiler optimizations (the difference is very small though!). 
 
 ## Encoding, current state of affairs (updated 8-4-2019)
 

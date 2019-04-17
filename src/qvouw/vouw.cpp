@@ -4,8 +4,8 @@
 #include <QFileInfo>
 
 ImageEncoder::~ImageEncoder() {
-    if( m_mat )
-        delete m_mat;
+    if( matrix() )
+        delete matrix();
 }
 
 ImageEncoder::ImageEncoder( const QString& filename, int levels ) : Vouw::Encoder() {

@@ -67,7 +67,7 @@ Encoder::~Encoder() {
 
 bool
 Encoder::isValid() const {
-    return m_es && m_mat && m_ct && m_instlist.totalCount();
+    return m_es && m_mat && m_ct && totalCount();
 }
 
 void Encoder::setFromMatrix( Matrix2D* mat, bool useTabu ) {
@@ -75,8 +75,8 @@ void Encoder::setFromMatrix( Matrix2D* mat, bool useTabu ) {
 
     clear();
     m_ct = new CodeTable( mat );
-    m_instlist.setMatrixSize( mat->width(), mat->height(), mat->base() );
-    m_instlist.reserve( mat->width() * mat->height() );
+    m_instvec.setMatrixSize( mat->width(), mat->height(), mat->base() );
+    m_instvec.reserve( mat->width() * mat->height() );
     m_instmat.setRowLength( mat->width() );
     m_mat =mat;
     m_massfunc = &mat->distribution();
@@ -136,17 +136,18 @@ void Encoder::setFromMatrix( Matrix2D* mat, bool useTabu ) {
             p->usage()++;
             if( useTabu && elem == tabuElem ) {
                 p->setTabu( true );
-                m_instlist.tabuCount()++;
+                m_tabuCount++;
             }
             else {
-                m_instlist.push_back( new Instance( p, c, v, false ) );
-                m_instmat.place( m_instlist.back() );
+                m_instvec.emplace_back( p, c, v );
+                m_instmat.place( m_instvec.size()-1, m_instvec.back() );
+                m_instanceCount++;
             }
 
 
         }
     }
-    std::cout << "Added " << m_ct->countIfActive() << " patterns in " << m_instlist.totalCount() << " instances." << std::endl;
+    std::cout << "Added " << m_ct->countIfActive() << " patterns in " << totalCount() << " instances." << std::endl;
 
 
     m_priorBits =updateCodeLengths();
@@ -165,10 +166,13 @@ void Encoder::clear() {
     m_mat =0;
     if( m_ct )
         delete m_ct;
-    m_instlist.deleteAll();
+    m_instvec.clear();
     m_instmat.clear();
     m_smap.clear();
     m_massfunc = NULL;
+
+    m_tabuCount =0;
+    m_instanceCount =0;
 
     m_priorBits =0.0;
     m_isEncoded =false;
@@ -178,68 +182,12 @@ void Encoder::clear() {
 }
 
 bool Encoder::encodeStep() { 
-    //std::vector<bool> pattern_mask( m_lastLabel );
     m_iteration ++;
-
-    int progress =0, total = m_instlist.totalCount();
     fprintf( stderr, "\n *** Iteration %d, finding candidates ... ", m_iteration );
 
     TimeVarT t1 = timeNow();
 
-    m_candidates.clear();
-
-    for( int i =0; i < m_instlist.size(); i++ ) {
-        Instance *r1 = m_instlist[i];
-
-        Pattern* p1 =r1->pattern();
-        assert( p1->isActive() );
-        if( p1->isTabu() ) continue;
-
-        if( progress++ % (total/10+1) == 0 )
-          std::cerr << progress*100/total << "% ";
-
-        int overlap_coeff =0; // Only if p1 == p2
-
-        // Get the periphery of r1's pattern
-        const Vouw::Pattern::PeripheryT& post =p1->periphery( Vouw::Pattern::PosteriorPeriphery );
-
-        // Iterate over all instances in r1's periphery
-        //for( auto && p_offset : post ) {
-        for( int j =0; j < post.size(); j++ ) {
-            Vouw::Coord2D coord = post[j].abs( r1->pivot() );
-            Instance* r2 = m_instmat[coord];
-            if( r2 == NULL ) continue; // No instance at this coord
-
-            if( r2->marker() == i ) continue;
-            r2->marker() =i; // Make sure we do not visit this instance again
-
-            if( r2->pivot().row() < r1->pivot().row() ) continue; // Edge case in the periphery representation
-
-            Pattern* p2 =r2->pattern();
-
-            if( p2->isTabu() ) continue;
-
-            Pattern::OffsetT offset( r1->pivot(), r2->pivot() );
-            if( p1 == p2 ) {
-                overlap_coeff =overlapCoeff( r1->pivot(), r2->pivot(), p1->bounds() );
-
-                r1->bitmaskGrow( overlap_coeff+1 );
-                if( r1->bitmask()[overlap_coeff] ) continue;
-                r2->bitmaskGrow( overlap_coeff+1 );
-                r2->bitmask()[overlap_coeff] = true;
-            }
-            
-            // Increment the usage count of this particular combination
-            Candidate c = { p1, p2, (Variant*)r1->variant(), (Variant*)r2->variant(), offset };
-            m_candidates[c]++;
-
-        }
-    }
-    for( auto && inst : m_instlist ) 
-        inst->marker() = -1;
-
-    std::cerr << std::endl << m_candidates.size() << " canditates found. Bucket count: " << m_candidates.bucket_count() << std::endl;
-    m_instlist.clearBitmasks();
+    rebuildCandidateMap();
 
     TimeVarT t2 = timeNow();
     std::cerr << "Elapsed time: " << duration( t2-t1 ) << " ms."<< std::endl;
@@ -251,26 +199,10 @@ bool Encoder::encodeStep() {
     Candidate bestC;
 
     for( auto&& pair : m_candidates ) {
-       // if( pair.second < bestUsage-1 ) continue; // Extra greedy selection by usage
         if( pair.second <= 1 ) continue;
         const Candidate& c = pair.first;
 
-        // Fractured pattern, merge it without further considerations
-       /* if( c.p1->usage() == c.p2->usage() && c.p1->usage() == pair.second ) {
-            bestC =c;
-            bestUsage =pair.second;
-            bestGain =computeGain( &c, pair.second, modelSize );
-            break;
-        }*/
-
         double gain = computeGain( &c, pair.second, modelSize );
-        /*fprintf( stderr, "Candidate: %d + %d (%d,%d), usage %d, gain %f\n",
-                c.p1->label(),
-                c.p2->label(),
-                c.offset.row(),
-                c.offset.col(),
-                pair.second,
-                gain );*/
         if( gain >= bestGain ) {
             bestGain =gain;
             bestC =c;
@@ -278,21 +210,51 @@ bool Encoder::encodeStep() {
         }
     }
 
+   /* CandidateGainVectorT gainvec;
+    for( auto&& pair : m_candidates ) {
+        if( pair.second <= 1 ) continue;
+        const Candidate& c = pair.first;
+
+        double gain = computeGain( &c, pair.second, modelSize );
+        if( gain > 0.0 ) {
+            gainvec.push_back( CandidateGainT( c, gain ) );
+        }
+    }
+
+    std::cerr << "Retained " << gainvec.size() << " candidates with positive gain." << std::endl;
+
+    std::sort( gainvec.begin(), gainvec.end(), cg_pattern_size_gt );
+  
+    int bestUsage =0;
+    double bestGain =-std::numeric_limits<double>::infinity();
+    Candidate bestC;
+
+    if( gainvec.size() ) {
+        bestC = gainvec.back().first;
+        bestUsage = m_candidates[bestC];
+        bestGain = gainvec.back().second;
+    }*/
+
     TimeVarT t3 = timeNow();
     std::cerr << "Elapsed time: " << duration( t3-t2 ) << " ms."<< std::endl;
     printf( "Estimated gain %f, estimated usage: %d\n", bestGain, bestUsage );
     static int decompositions =0;
     
-    if( m_iteration > 1 && bestGain <= 0.0 ) {
+    if( bestGain <= 0.0 ) {
         std::cout << "No compression gain." << std::endl;
 
+        // Try additional decomposion before giving up
         bool prune =false;
         for( auto p : *m_ct ) {
              prune = prunePattern( p, false ) || prune;
         }
-        if( prune ) return true;
+        if( prune ) { 
+            std::sort( m_instvec.begin(), m_instvec.end() );
+            return true;
+        }
 
         m_isEncoded =true;
+        rebuildInstanceMatrix();
 
         for( auto&& p : *m_ct ) {
             if( p->isActive() )
@@ -340,6 +302,11 @@ bool Encoder::encodeStep() {
     /*prunePattern( bestC.p1, false );
     if( bestC.p1 != bestC.p2 )
         prunePattern( bestC.p2, false );*/
+
+    if( m_iteration % 1000 == 0 ) {
+        std::cerr << "Rebuilding instance matrix..." << std::endl;
+        rebuildInstanceMatrix();
+    }
     
     TimeVarT t5 = timeNow();
     std::cerr << "Elapsed time: " << duration( t5-t4 ) << " ms."<< std::endl;
@@ -369,7 +336,7 @@ Encoder::encode() {
 void
 Encoder::reencode() {
 
-    m_instlist.clear();
+    m_instvec.clear();
 
     /* Iterate over all patterns in the CT, sorted descending by size */
     m_ct->sortBySizeDesc();
@@ -388,13 +355,12 @@ Encoder::reencode() {
 
                     p->usage()++;
                     p->setActive( true );
-                    m_instlist.push_back( new Instance( p, c, m_es->makeNullVariant(), false ) );
-                    m_instmat.place( m_instlist.back() );
+                    m_instvec.emplace_back( p, c, m_es->makeNullVariant() );
                 }
             }
         }
     }
-    std::sort( m_instlist.begin(), m_instlist.end(), instance_less_than );
+    rebuildInstanceMatrix();
 
     m_mat->unflagAll();
     updateCodeLengths();
@@ -407,6 +373,91 @@ Encoder::decode() {
 
 /* Private functions for class Encoder */
 
+void
+Encoder::rebuildCandidateMap() {
+    int progress =0, total = totalCount();
+
+    m_candidates.clear();
+    m_overlapMask.resize( m_instvec.size() );
+    //m_overlapMask.assign( m_instvec.size(), Instance::BitmaskT() );
+    for( auto && mask : m_overlapMask ) {
+        mask.assign( mask.size(), false );
+    }
+    if( m_instvec.size() != m_instanceMarker.size() ) {
+        m_instanceMarker.resize( m_instvec.size() );
+        m_instanceMarker.assign( m_instvec.size(), 1UL << 63 );
+    }
+
+    InstanceVector::IndexT odd =0;
+    if( m_iteration % 2 != 0 )
+        odd = 1UL << 62;
+
+    for( int i =0; i < m_instvec.size(); i++ ) {
+        Instance &r1 = m_instvec[i];
+        if( r1.empty() ) continue;
+
+        Pattern* p1 =r1.pattern();
+        assert( p1->isActive() );
+       // if( p1->isTabu() ) continue;
+
+        if( progress++ % (total/10+1) == 0 )
+          std::cerr << progress*100/total << "% ";
+
+        int overlap_coeff =0; // Only if p1 == p2
+
+        // Get the periphery of r1's pattern
+        const Vouw::Pattern::PeripheryT& post =p1->periphery( Vouw::Pattern::PosteriorPeriphery );
+
+        // Iterate over all instances in r1's periphery
+        for( int j =0; j < post.size(); j++ ) {
+            Vouw::Coord2D coord = post[j].abs( r1.pivot() );
+            InstanceMatrix::IndexT idx = m_instmat[coord];
+            if( idx == m_instmat.empty ) continue;
+
+            if( m_instanceMarker[idx] == (i | odd) ) continue;
+            m_instanceMarker[idx] =(i | odd);
+
+            Instance& r2 = m_instvec[idx];
+            if( r2.empty() ) continue; // No instance at this coord
+
+           // if( r2.marker() == i ) continue;
+           // r2.marker() =i; // Make sure we do not visit this instance again
+
+            if( r2.pivot().row() < r1.pivot().row() ) continue; // Edge case in the periphery representation
+
+            Pattern* p2 =r2.pattern();
+
+            if( p2->isTabu() ) continue;
+
+            Pattern::OffsetT offset( r1.pivot(), r2.pivot() );
+            if( p1 == p2 ) {
+                overlap_coeff =overlapCoeff( r1.pivot(), r2.pivot(), p1->bounds() );
+
+                /*r1.bitmaskGrow( overlap_coeff+1 );
+                if( r1.bitmask()[overlap_coeff] ) continue;
+                r2.bitmaskGrow( overlap_coeff+1 );
+                r2.bitmask()[overlap_coeff] = true;*/
+                if( m_overlapMask[i].size() < overlap_coeff+1 ) m_overlapMask[i].resize( overlap_coeff+1 );
+                if( m_overlapMask[i][overlap_coeff] ) continue;
+                if( m_overlapMask[idx].size() < overlap_coeff+1 ) m_overlapMask[idx].resize( overlap_coeff+1 );
+                //m_overlapMask[idx].reserve( overlap_coeff+1 );
+                m_overlapMask[idx][overlap_coeff] = true;
+            }
+            
+            // Increment the usage count of this particular combination
+            Candidate c = { p1, p2, (Variant*)r1.variant(), (Variant*)r2.variant(), offset };
+            m_candidates[c]++;
+
+        }
+    }
+
+    std::cerr << std::endl << m_candidates.size() << " canditates found. Bucket count: " << m_candidates.bucket_count() << std::endl;
+  /*  for( auto && inst : m_instvec ) { 
+        inst.marker() = -1;
+        inst.bitmask().clear();
+    }*/
+}
+
 void 
 Encoder::mergePatterns( const Candidate* c ) {
     // Create the merged pattern
@@ -416,12 +467,11 @@ Encoder::mergePatterns( const Candidate* c ) {
 
     //assert( p_union->isCanonical() ); // Sanity check, creates a bit of overhead
 
-    for( int i =0; i < m_instlist.size(); i++ ) {
-        Instance *r1 = m_instlist[i];
-        if( r1->isFlagged() ) continue;
-        //r1->setFlagged( true );
+    for( int i =0; i < m_instvec.size(); i++ ) {
+        Instance &r1 = m_instvec[i];
+        if( r1.empty() ) continue;
 
-        Pattern* p1 =r1->pattern();
+        Pattern* p1 =r1.pattern();
         if( p1 != c->p1 ) continue;
         
         // Get the periphery of r1's pattern
@@ -429,54 +479,52 @@ Encoder::mergePatterns( const Candidate* c ) {
 
         // Iterate over all instances in r1's periphery
         for( auto && p_offset : post ) {
-            Vouw::Coord2D coord = p_offset.abs( r1->pivot() );
-            Instance* r2 = m_instmat[coord];
-            if( !r2 ) continue; // No instance at this coord
-            if( r2->isFlagged() ) continue;
+            Vouw::Coord2D coord = p_offset.abs( r1.pivot() );
+            InstanceMatrix::IndexT idx =m_instmat[coord];
+            if( idx == m_instmat.empty ) continue;
+            Instance& r2 =m_instvec[idx];
+            if( r2.empty() ) continue; // No instance at this coord
 
-            Pattern* p2 =r2->pattern();
+            Pattern* p2 =r2.pattern();
             if( p2 != c->p2 ) continue;
 
-            Pattern::OffsetT offset( r1->pivot(), r2->pivot() );
+            Pattern::OffsetT offset( r1.pivot(), r2.pivot() );
 
             if( offset != c->offset ) continue;
             
             Variant* v;
-            if( r1->variant()->hash() != c->v1->hash() || r2->variant()->hash() != c->v2->hash() ) {
-                v =m_es->makeVariant( *p_union, *p1, *p2, *r1->variant(), *r2->variant(), offset );
+            if( r1.variant()->hash() != c->v1->hash() || r2.variant()->hash() != c->v2->hash() ) {
+                v =m_es->makeVariant( *p_union, *p1, *p2, *r1.variant(), *r2.variant(), offset );
                 if( !v->isValid() ) continue;
             } else {
                 v =m_es->makeNullVariant();
             }
 
-            Coord2D pivot =r1->pivot();
+            Coord2D pivot =r1.pivot();
 
-            r2->setFlagged( true ); // Mark for deletion
-            delete m_instlist[i];
-            m_instlist[i] = new Instance( p_union, pivot, v, false );
+            r2.clear(); // Mark for deletion later on
+            m_instvec[i] = Instance( p_union, pivot, v );
 
             //m_instmat.remove( &r1 );
             //m_instmat.remove( r2 );
-            m_instmat.place( m_instlist[i] );
+            m_instmat.place( i, m_instvec[i] );
 
             p_union->usage()++;
             p1->usage()--;
             p2->usage()--;
+            m_instanceCount--;
             break;
         }
     }
     
-    m_instlist.deleteIfFlagged( m_instlist.begin(), m_instlist.end() );
-
     printf( "Actual usage: %d, actual dimensions %d x %d\n", p_union->usage(), p_union->bounds().width, p_union->bounds().height );
 }
 
 double
 Encoder::updateCodeLengths() {
     assert( m_massfunc );
-    m_ct->updateCodeLengths( m_instlist.totalCount(), *m_massfunc );
-    //m_instlist.updateCodeLengths( m_ct->countIfActive() );
-    return (m_encodedBits =m_ct->totalLength() /*+ m_instlist.totalLength()*/);
+    m_ct->updateCodeLengths( totalCount(), *m_massfunc );
+    return (m_encodedBits =m_ct->totalLength());
 }
 
 double
@@ -524,11 +572,11 @@ Encoder::computeGain( const Candidate* c, int usage, int modelSize, bool debugPr
     //printf( "(%d,%d) new model size %d (was %d) ", c->offset.row(), c->offset.col(), newModelSize, m_ct->countIfActive() );
 
     // The new size of the instance set is determined by the predicted usage of the union pattern
-    const int totalInstances = m_instlist.totalCount() - usage;
+    const int totalInstances = totalCount() - usage;
 
     // For the instance set to decode correctly, its cardinality need to be known in advance
-    //bits += uintCodeLength( m_instlist.totalCount() ) - uintCodeLength( totalInstances );
-    //bits += uintCodeLength( binom( m_mat->width() * m_mat->height(), m_instlist.totalCount() ) )
+    //bits += uintCodeLength( totalCount() ) - uintCodeLength( totalInstances );
+    //bits += uintCodeLength( binom( m_mat->width() * m_mat->height(), totalCount() ) )
     //     -  uintCodeLength( binom( m_mat->width() * m_mat->height(), totalInstances ) );
     // Idem for the model
     bits += uintCodeLength( modelSize ) - uintCodeLength( newModelSize );
@@ -536,9 +584,9 @@ Encoder::computeGain( const Candidate* c, int usage, int modelSize, bool debugPr
     // Recompute code table and instance codewords based on the new model's size
     // We use the fact that -log(a/b) = log(b)-log(a)
     // Here we subtract the log(b) component and replace it with log(b+k)
-    //const int f =m_instlist.totalCount()+m_ct->countIfActive();
-    //bits += f * (log2( m_instlist.totalCount() ) - log2( totalInstances ));
-    bits += (lgamma( (double)m_instlist.totalCount() + pseudoCount * (double)modelSize ) / log(2) - lgamma( pseudoCount * (double)modelSize ) / log(2)) 
+    //const int f =totalCount()+m_ct->countIfActive();
+    //bits += f * (log2( totalCount() ) - log2( totalInstances ));
+    bits += (lgamma( (double)totalCount() + pseudoCount * (double)modelSize ) / log(2) - lgamma( pseudoCount * (double)modelSize ) / log(2)) 
             -(lgamma( (double)totalInstances + pseudoCount * (double)newModelSize ) / log(2) - lgamma( pseudoCount * (double)newModelSize ) / log(2)); 
 
  
@@ -615,19 +663,19 @@ Encoder::computeDecompositionGain( const Pattern* p, int modelSize, bool debugPr
 
     // New pivots can be sized differently because their size depends on the number of instances
     const int newModelSize = modelSize -1;
-    const int totalInstances = m_instlist.totalCount() + p->usage() * (n-1);
+    const int totalInstances = totalCount() + p->usage() * (n-1);
     double bits = 0.0;
     
     // For the instance set to decode correctly, its cardinality need to be known in advance
-    //bits += uintCodeLength( m_instlist.totalCount() ) - uintCodeLength( totalInstances );
+    //bits += uintCodeLength( totalCount() ) - uintCodeLength( totalInstances );
     // Idem for the model
     bits += uintCodeLength( modelSize ) - uintCodeLength( newModelSize );
 
     // Recompute code table and instance codewords based on the new model's size
     // We use the fact that -log(a/b) = log(b)-log(a)
     // Here we subtract the log(b) component and replace it with log(b+k)
-    const int f =m_instlist.totalCount()+m_ct->countIfActive();
-    bits += (lgamma( (double)m_instlist.totalCount() + pseudoCount * (double)modelSize ) / log(2) - lgamma( pseudoCount * (double)modelSize ) / log(2)) 
+    const int f =totalCount()+m_ct->countIfActive();
+    bits += (lgamma( (double)totalCount() + pseudoCount * (double)modelSize ) / log(2) - lgamma( pseudoCount * (double)modelSize ) / log(2)) 
             -(lgamma( (double)totalInstances + pseudoCount * (double)newModelSize ) / log(2) - lgamma( pseudoCount * (double)newModelSize ) / log(2)); 
 
     // Step 1. remove the bits of the instances and code table codeword of @p completely
@@ -669,62 +717,85 @@ Encoder::prunePattern( Pattern* p, bool onlyZeroPattern ) {
     double g =computeDecompositionGain( p, modelSize );
     if( g > 0.0 ) {
         fprintf( stderr, "The decompositon of %d would result in %f bits gain.\n", p->label(), g );
-        for( auto&& r : m_instlist ) {
-            if( r->pattern() == p ) {
-                r->setFlagged( true );
+        for( auto&& r : m_instvec ) {
+            if( !r.empty() && r.pattern() == p ) {
                 decompose( r );
+                r.clear();
                 ((Pattern*)p)->usage()--;
             }
         }
-        m_instlist.deleteIfFlagged( m_instlist.begin(), m_instlist.end() );
+        //m_instvec.eraseIfNull( m_instvec.begin(), m_instvec.end() );
         p->setActive( false );
         m_decompositions++;
+        
         double oldBits = m_encodedBits;
-        double oldIBits = m_instlist.totalCodeLength();
+        double oldIBits = m_instvec.totalCodeLength();
         double oldCBits = m_ct->totalLength();
         updateCodeLengths();
         printf( "Actual decomposition gain: %f (instance set %f, code table %f)\n", 
-                oldBits - m_encodedBits, oldIBits - m_instlist.totalCodeLength() , oldCBits - m_ct->totalLength() );
+                oldBits - m_encodedBits, oldIBits - m_instvec.totalCodeLength() , oldCBits - m_ct->totalLength() );
         if( std::abs( g - (oldBits-m_encodedBits) ) > 0.0001 ) {
             printf( "\n*** Computed decomposition gain doesn't match! Panic! ***\n\n" );
         }
-        /* Decompositions may have changed the order of the instance set */
-        std::sort( m_instlist.begin(), m_instlist.end(), instance_less_than );
-
         return true;
     }
 
     return false;
 }
 
+/** Decomposes instance @r into instances r1 and r2, defined by the composition on @r.pattern()
+ *  If r1 and/or r2 contain an inactive pattern, each is decomposed recursively.
+ *  The final instances are covering @r completely and are pushed to the back of the list.
+ *  @r is not removed from the list and this function leaves the list in an unsorted state.
+ */
 void
-Encoder::decompose( Instance* inst ) {
+Encoder::decompose( Instance& inst ) {
 
-    const Pattern* p =inst->pattern();
+    const Pattern* p =inst.pattern();
     const Pattern::CompositionT& comp = p->composition();
     if( !comp.isValid() ) return;
 
-    Coord2D pivot2 = comp.offset.abs( inst->pivot() );
+    Coord2D pivot2 = comp.offset.abs( inst.pivot() );
 
-    Instance *inst1 = new Instance( (Pattern*)comp.p1, inst->pivot(), comp.v1 );
+    m_instanceCount++;
+
+    Instance inst1( (Pattern*)comp.p1, inst.pivot(), comp.v1 );
     if( !comp.p1->isActive() ) {
         decompose( inst1 );
-        delete inst1;
     } else {
         ((Pattern*)comp.p1)->usage()++;
-        m_instlist.push_back( inst1 );
-        m_instmat.place( inst1 );
+        m_instvec.push_back( inst1 );
+        //m_instmat.place( inst1 );
     }
 
-    Instance *inst2 = new Instance( (Pattern*)comp.p2, pivot2, comp.v2 );
+    Instance inst2( (Pattern*)comp.p2, pivot2, comp.v2 );
     if( !comp.p2->isActive() ) {
         decompose( inst2 );
-        delete inst2;
     } else {
         ((Pattern*)comp.p2)->usage()++;
-        m_instlist.push_back( inst2 );
-        m_instmat.place( inst2 );
+        m_instvec.push_back( inst2 );
+        //m_instmat.place( inst2 );
     }
+}
+
+void 
+Encoder::rebuildInstanceMatrix( bool sort ) {
+
+    // Free up space by compacting the instance vector
+    m_instvec.eraseIfEmpty( m_instvec.begin(), m_instvec.end() );
+
+    // The instance vector needs to be sorted at all time, 
+    // if random insertion has taken place it needs to be resorted
+    if( sort ) {
+        std::sort( m_instvec.begin(), m_instvec.end() );
+    }
+
+    // Now the unfortunate part, repopulate the matrix with the altered indices from the array
+    for( int i =0; i < m_instvec.size(); i++ ) {
+        m_instmat.place( i, m_instvec[i] );
+    }
+    m_instanceCount = m_instvec.size(); // This rarely equals, but now it does
+
 }
 
 VOUW_NAMESPACE_END

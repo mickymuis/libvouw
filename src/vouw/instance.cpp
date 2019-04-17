@@ -16,12 +16,10 @@ VOUW_NAMESPACE_BEGIN
 
 /* class Instance implementation */
 
-Instance::Instance( Pattern* pattern, const Coord2D& pivot, const Variant* variant, bool flag ) : 
+Instance::Instance( Pattern* pattern, const Coord2D& pivot, const Variant* variant ) : 
     m_pivot( pivot ),
-    m_variant( variant ),
-    //m_mask( masked ? DirAll : DirNone )
-    m_flagged( flag ),
-    m_marker( -1 )
+    m_variant( variant )/*,
+    m_marker( -1 )*/
 {
     setPattern( pattern );
 }
@@ -54,28 +52,28 @@ bool operator<(const Instance& r1, const Instance& r2) {
     return r1.pivot().position() < r2.pivot().position();
 }
 
-/* class InstanceList implementation */
+/* class InstanceVector implementation */
 
-InstanceList::InstanceList( int matWidth, int matHeight, int matBase) : 
-    std::vector<Instance*>(), 
-    m_bits( 0.0 ), m_stdBitsPerPivot( 0.0 ), m_tabuCount( 0 ) {
+InstanceVector::InstanceVector( int matWidth, int matHeight, int matBase) : 
+    std::vector<Instance>(), 
+    m_bits( 0.0 ), m_stdBitsPerPivot( 0.0 ) {
     setMatrixSize( matWidth, matHeight, matBase );
 }
 
-InstanceList::InstanceList( const Matrix2D* mat ) : 
-    std::vector<Instance*>(), 
-    m_bits( 0.0 ), m_stdBitsPerPivot( 0.0 ), m_tabuCount( 0 ) {
+InstanceVector::InstanceVector( const Matrix2D* mat ) : 
+    std::vector<Instance>(), 
+    m_bits( 0.0 ), m_stdBitsPerPivot( 0.0 ) {
     setMatrixSize( mat->width(), mat->height(), mat->base() );
 }
 
-InstanceList::~InstanceList() {}
+InstanceVector::~InstanceVector() {}
 
 double 
-InstanceList::bitsPerPivot( std::size_t pivotCount ) {
+InstanceVector::bitsPerPivot( std::size_t pivotCount ) {
     return log2( (double) pivotCount );
 }
 
-void InstanceList::updateCodeLengths( int modelSize ) {
+void InstanceVector::updateCodeLengths( int modelSize ) {
 /*
   //  m_stdBitsPerPivot = bitsPerPivot( this->size() );
     m_bits =uintCodeLength( this->size() );
@@ -90,19 +88,19 @@ void InstanceList::updateCodeLengths( int modelSize ) {
             - lgamma( pseudoCount * (double)modelSize ) / log(2); */
 }
 
-void InstanceList::clearBitmasks() {
+void InstanceVector::clearBitmasks() {
     for( auto& r : *this ) {
-        r->m_bitmask.assign( r->m_bitmask.size(), false );
+    //    r.m_bitmask.assign( r.m_bitmask.size(), false );
     }
 }
-void InstanceList::unflagAll() {
+/*void InstanceVector::unflagAll() {
     for( auto& r : *this ) {
         r->m_flagged = false;
     }
-}
+}*/
 
 void 
-InstanceList::setMatrixSize( int width, int height, int base ) { 
+InstanceVector::setMatrixSize( int width, int height, int base ) { 
     m_width =width; m_height =height; m_base =base;
     m_nodeCount =width*height;
 
@@ -110,44 +108,6 @@ InstanceList::setMatrixSize( int width, int height, int base ) {
         m_stdBitsPerPivot = log2( (double)m_nodeCount );
     }*/
 
-}
-
-/** Decomposes instance @r into instances r1 and r2, defined by the composition on @r.pattern()
- *  If r1 and/or r2 contain an inactive pattern, each is decomposed recursively.
- *  The final instances are covering @r completely and are pushed to the back of the list.
- *  @r is not removed from the list and this function leaves the list in an unsorted state.
- */
-void
-InstanceList::decompose( const Instance& r ) {
-    const Pattern* p =r.pattern();
-    const Pattern::CompositionT& comp = r.pattern()->composition();
-    if( !comp.isValid() ) return;
-
-    Coord2D pivot2 = comp.offset.abs( r.pivot() );
-
-    Instance r1( (Pattern*)comp.p1, r.pivot(), comp.v1 );
-    if( !comp.p1->isActive() )
-        decompose( r1 );
-    else {
-        ((Pattern*)comp.p1)->usage()++;
-        push_back( new Instance(r1) );
-    }
-
-    Instance r2( (Pattern*)comp.p2, pivot2, comp.v2 );
-    if( !comp.p2->isActive() )
-        decompose( r2 );
-    else {
-        ((Pattern*)comp.p2)->usage()++;
-        push_back( new Instance(r2) );
-    }
-}
-
-void
-InstanceList::deleteAll() { 
-    for( Instance* inst : *this ) { 
-        delete inst;
-    }
-    clear();
 }
 
 VOUW_NAMESPACE_END

@@ -9,6 +9,8 @@
 #include "vouw.h"
 #include "pattern.h"
 #include <unordered_map>
+#include <vector>
+#include <algorithm>
 
 VOUW_NAMESPACE_BEGIN
 
@@ -45,5 +47,20 @@ struct CandidateHash {
 };
 
 typedef std::unordered_map<Candidate,int,CandidateHash> CandidateMapT;
+typedef std::pair<Candidate,double> CandidateGainT;
+typedef std::vector<CandidateGainT> CandidateGainVectorT;
+
+inline bool cg_gain_lt( const CandidateGainT& cg1, const CandidateGainT& cg2 ) {
+    return cg1.second < cg2.second;
+}
+
+inline bool cg_pattern_size_gt( const CandidateGainT& cg1, const CandidateGainT& cg2 ) {
+    int pmax1 = std::max( cg1.first.p1->size(), cg1.first.p2->size() );
+    int pmax2 = std::max( cg2.first.p1->size(), cg2.first.p2->size() );
+    if( pmax1 == pmax2 )
+        return cg1.second < cg2.second;
+
+    return pmax1 > pmax2;
+}
 
 VOUW_NAMESPACE_END

@@ -18,24 +18,20 @@ class Pattern;
 class Variant;
 class Instance;
 
-inline bool instance_delete_if_masked( Instance* );
+inline bool instance_is_null( const Instance& );
 
-class InstanceList : public std::vector<Instance*> {
+class InstanceVector : public std::vector<Instance> {
     public:
-        InstanceList( int matWidth =0, int matHeight =0, int matBase =0 );
-        InstanceList( const Matrix2D* mat );
-        ~InstanceList();
+        typedef size_type IndexT;
+        InstanceVector( int matWidth =0, int matHeight =0, int matBase =0 );
+        InstanceVector( const Matrix2D* mat );
+        ~InstanceVector();
 
         void clearBitmasks();
-        void unflagAll();
-        inline void deleteIfFlagged( InstanceList::iterator begin, InstanceList::iterator end ) { erase( std::remove_if( begin, end, instance_delete_if_masked ), end ); }
+        //void unflagAll();
+        inline void eraseIfEmpty( InstanceVector::iterator begin, InstanceVector::iterator end ) { erase( std::remove_if( begin, end, instance_is_null ), end ); }
 
         void updateCodeLengths( int modelSize );
-
-        inline int  tabuCount() const { return m_tabuCount; }
-        inline int& tabuCount() { return m_tabuCount; }
-        inline void setTabuCount( int c ) { m_tabuCount = c; }
-        inline int totalCount() const { return size() + m_tabuCount; }
 
         inline double totalCodeLength() const { return m_bits; }
         inline double bitsPerPivot() const { return m_stdBitsPerPivot; }
@@ -55,14 +51,13 @@ class InstanceList : public std::vector<Instance*> {
         int m_width, m_height, m_base, m_nodeCount;
         double m_bits;
         double m_stdBitsPerPivot;
-        int m_tabuCount;
 //        double m_stdBitsPerVariant;
 };
 
 class Instance {
     public:
         typedef std::vector<bool> BitmaskT;
-        Instance( Pattern* pattern, const Coord2D& pivot, const Variant* variant, bool flag =false );
+        Instance( Pattern* pattern, const Coord2D& pivot, const Variant* variant );
         Instance();
         ~Instance();
 
@@ -77,29 +72,28 @@ class Instance {
         inline void setVariant( const Variant* v ) { m_variant =v; }
         inline const Variant* variant() const { return m_variant; }
 
-        inline void setFlagged( bool b ) const { m_flagged =b; }
-        inline bool isFlagged( DirT dir = DirAll ) const { return m_flagged; }
+      //  inline void bitmaskGrow( int size ) const { if( size > m_bitmask.size() ) m_bitmask.resize( size ); }
+      //  inline BitmaskT& bitmask() const { return m_bitmask; }
 
-        inline void bitmaskGrow( int size ) const { if( size > m_bitmask.size() ) m_bitmask.resize( size ); }
-        inline BitmaskT& bitmask() const { return m_bitmask; }
+      //  inline int& marker() { return m_marker; }
 
-        inline int& marker() { return m_marker; }
-
-        inline void setVariantBits( double b ) { m_variantBits =b; }
+        /*inline void setVariantBits( double b ) { m_variantBits =b; }
         inline double& variantBits() { return m_variantBits; }
-        inline double variantBits() const { return m_variantBits; }
+        inline double variantBits() const { return m_variantBits; }*/
+
+        inline void clear() { m_pattern = NULL; m_pivot = Coord2D(0,0); /*m_bitmask.clear();*/ m_variant =NULL; }
+        inline bool empty() const { return m_pattern == NULL; }
 
     private:
 
         Pattern* m_pattern;
         Coord2D m_pivot;
 
-        friend class InstanceList;
+        friend class InstanceVector;
         mutable const Variant* m_variant;
-        mutable BitmaskT m_bitmask;
-        mutable bool m_flagged;
-        mutable double m_variantBits;
-        mutable int m_marker;
+    //    mutable BitmaskT m_bitmask;
+        //mutable double m_variantBits;
+    //    mutable int m_marker;
 };
 
 bool operator<(const Instance&, const Instance& );
@@ -108,12 +102,8 @@ inline bool instance_less_than( const Instance* inst1, const Instance* inst2 ) {
     return (*inst1 < *inst2);
 }
 
-inline bool instance_delete_if_masked( Instance* inst ) {
-    if( inst->isFlagged() ) {
-        delete inst;
-        return true;
-    }
-    return false;
+inline bool instance_is_null( const Instance& inst ) {
+    return inst.empty();
 }
 
 VOUW_NAMESPACE_END

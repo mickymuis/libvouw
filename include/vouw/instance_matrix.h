@@ -14,25 +14,26 @@ VOUW_NAMESPACE_BEGIN
 
 class InstanceMatrix {
     public: 
-        typedef std::unordered_map<unsigned int, Instance*> MapT;
+        typedef unsigned int KeyT;
+        typedef InstanceVector::IndexT IndexT;
+        typedef std::unordered_map<KeyT, IndexT> MapT;
+
+        static IndexT empty;
 
         InstanceMatrix();
         InstanceMatrix( int rowLength );
         ~InstanceMatrix();
 
-        Instance* at( const Coord2D& );
-        Instance* at( const Coord2D&, bool& isPivot );
-        Instance* at( int row, int col );
-        Instance* at( int row, int col, bool& isPivot );
+        IndexT at( const Coord2D& );
+        IndexT at( int row, int col );
 
-        Instance* operator[]( const Coord2D& );
-        const Instance* operator[]( const Coord2D& ) const;
+        IndexT operator[]( const Coord2D& );
+        const IndexT operator[]( const Coord2D& ) const;
 
-        void place( Instance* );
-        void place( Instance*, const Coord2D& pivot );
+        void place( IndexT idx, const Instance&, const Coord2D& pivot );
+        void place( IndexT idx, const Instance& );
 
-        void remove( Instance* );
-        void remove( const Coord2D& );
+        void remove( const Instance& );
 
         void setRowLength( int rowlength ) { m_rowLength =rowlength; }
         int rowLength() const { return m_rowLength; }
@@ -43,8 +44,8 @@ class InstanceMatrix {
       //  size_t count() const { return m_count; }
 
     private:
-        inline unsigned int key( const Coord2D& ) const;
-        inline unsigned int key( int row, int col ) const;
+        inline KeyT key( const Coord2D& ) const;
+        inline KeyT key( int row, int col ) const;
         MapT m_map;
         int m_rowLength;
         //size_t m_count;

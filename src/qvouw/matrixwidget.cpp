@@ -1,3 +1,9 @@
+/*
+ * QVouw - Graphical User Interface for VOUW
+ *
+ * Micky Faas <micky@edukitty.org>
+ * (C) 2018, 2019, Leiden Institute for Advanced Computer Science
+ */
 #include "matrixwidget.h"
 #include <QPainter>
 #include <QMouseEvent>
@@ -286,12 +292,17 @@ REDRAW_PATTERN:
                 painter.drawPoint( center );
             }
         }
+        // Additionally, we draw the periphery of the selected instance
         if( selectedInstance && opts & ShowPeriphery ) {
-            const Vouw::Pattern::PeripheryT& post =selectedInstance->pattern()->periphery( Vouw::Pattern::PosteriorPeriphery );
-            painter.setPen( QPen( Qt::black,stroke ) );
-            for( auto &&offset : post ) {
-                Vouw::Coord2D c = offset.abs( selectedInstance->pivot() );
-                drawCross( painter, QPoint( c.col(), c.row() ) );
+            // There are multiple peripheries (before and after the instance)
+            for( int i =0; i < 2; i++ ) {
+                const Vouw::Pattern::PeripheryT& per 
+                    =selectedInstance->pattern()->periphery( (Vouw::Pattern::PeripheryPosition)i );
+                painter.setPen( QPen( i == 0 ? Qt::red : Qt::black,stroke ) );
+                for( auto &&offset : per ) {
+                    Vouw::Coord2D c = offset.abs( selectedInstance->pivot() );
+                    drawCross( painter, QPoint( c.col(), c.row() ) );
+                }
             }
         }
     }

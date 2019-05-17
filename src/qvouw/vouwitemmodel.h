@@ -1,13 +1,17 @@
-#ifndef QVOUW_H
-#define QVOUW_H
+/*
+ * QVouw - Graphical User Interface for VOUW
+ *
+ * Micky Faas <micky@edukitty.org>
+ * (C) 2018, 2019, Leiden Institute for Advanced Computer Science
+ */
+#pragma once
 
 #include <QObject>
 #include <QList>
 #include <QAbstractItemModel>
 
-#include "vouw.h"
+#include "qvouw.h"
 
-class VouwItem;
 class VouwItem {
 public:
     enum Role {
@@ -21,8 +25,8 @@ public:
     explicit VouwItem( Role, VouwItem* parent =0 );
     ~VouwItem();
 
-    void setObject( Vouw::Encoder* );
-    Vouw::Encoder* object() const;
+    void setHandle( QVouw::Handle* );
+    QVouw::Handle* handle() const;
 
     void setName( const QString& n ) { str = n; }
     QString name() const { return str; }
@@ -45,7 +49,7 @@ private:
     QList<VouwItem*> childList;
     VouwItem *parentItem;
     QString str;
-    Vouw::Encoder* obj;
+    QVouw::Handle* hnd;
 
 };
 
@@ -56,7 +60,7 @@ public:
     VouwItemModel( QObject* parent =0 );
     ~VouwItemModel();
 
-    VouwItem* add( Vouw::Encoder*, const QString& name );
+    VouwItem* add( QVouw::Handle*, const QString& name );
     VouwItem* addEmpty( const QString& name );
 
     //void update( VouwItem* );
@@ -81,4 +85,3 @@ private:
 
 };
 
-#endif

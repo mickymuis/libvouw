@@ -22,7 +22,14 @@ int main(int argc, char *argv[])
     window.show();
 
    // QStringList args = app.arguments();
-    for( int i =1; i < argc; i++ )
-        window.importImage( argv[i], 8 );
+    for( int i =1; i < argc; i++ ) {
+        // TODO: make commandline flags
+        QVouw::FileOpts opts;
+        opts.filename = QString( argv[i] );
+        opts.filetype = QVouw::IMAGE_IMPORT;
+        opts.levels = 8;
+        opts.use_tabu = true;
+        window.import( opts );
+    }
     return app.exec();
 }

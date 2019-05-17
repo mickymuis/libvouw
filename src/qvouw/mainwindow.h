@@ -1,7 +1,13 @@
-#ifndef MAINWINDOW_H
-#define MAINWINDOW_H
+/*
+ * QVouw - Graphical User Interface for VOUW
+ *
+ * Micky Faas <micky@edukitty.org>
+ * (C) 2018, 2019, Leiden Institute for Advanced Computer Science
+ */
+#pragma once
 
 #include <vouw/vouw.h>
+#include "qvouw.h"
 #include <QMainWindow>
 #include <QTextEdit>
 #include <QFile>
@@ -21,7 +27,7 @@ class MainWindow : public QMainWindow
 
 public:
     MainWindow();
-    void importImage( const QString& fileName, int levels );
+    void import( const QVouw::FileOpts& opts);
 
 public slots:
     void importImagePrompt();
@@ -36,7 +42,7 @@ private slots:
 
 private:
     void updateConsole();
-    void encode( Vouw::Encoder* );
+    void encode( QVouw::Handle* );
     void setCurrentItem( VouwItem* );
 
     MatrixWidget* vouwWidget;
@@ -48,4 +54,3 @@ private:
     bool showProgress;
 };
 
-#endif

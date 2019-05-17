@@ -30,6 +30,7 @@ class Pattern {
 
                 Coord2D abs( const Coord2D& pivot ) const;
                 OffsetT translate( const OffsetT& offs ) const;
+                OffsetT negate() const;
 
                 DirT direction() const;
 

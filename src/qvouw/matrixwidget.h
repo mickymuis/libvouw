@@ -1,5 +1,11 @@
-#ifndef MATRIXWIDGET_H
-#define MATRIXWIDGET_H
+/*
+ * QVouw - Graphical User Interface for VOUW
+ *
+ * Micky Faas <micky@edukitty.org>
+ * (C) 2018, 2019, Leiden Institute for Advanced Computer Science
+ */
+
+#pragma once
 
 #include <QWidget>
 #include <QMap>
@@ -76,4 +82,3 @@ private:
     QMap<void*, struct viewstate_t> viewstateHistory;
 };
 
-#endif

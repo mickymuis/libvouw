@@ -194,7 +194,7 @@ bool Encoder::encodeStep() {
     fprintf( stderr, "Computing gain... " );
 
     int modelSize = m_ct->countIfActive();
-    int bestUsage =0;
+  /*  int bestUsage =0;
     double bestGain =-std::numeric_limits<double>::infinity();
     Candidate bestC;
 
@@ -208,22 +208,22 @@ bool Encoder::encodeStep() {
             bestC =c;
             bestUsage =pair.second;
         }
-    }
+    }*/
 
-   /* CandidateGainVectorT gainvec;
+    CandidateGainVectorT gainvec;
     for( auto&& pair : m_candidates ) {
         if( pair.second <= 1 ) continue;
         const Candidate& c = pair.first;
 
         double gain = computeGain( &c, pair.second, modelSize );
-        if( gain > 0.0 ) {
+        if( gain > 0.0 || m_iteration == 1) {
             gainvec.push_back( CandidateGainT( c, gain ) );
         }
     }
 
     std::cerr << "Retained " << gainvec.size() << " candidates with positive gain." << std::endl;
 
-    std::sort( gainvec.begin(), gainvec.end(), cg_pattern_size_gt );
+    std::sort( gainvec.begin(), gainvec.end(), cg_gain_gt );
   
     int bestUsage =0;
     double bestGain =-std::numeric_limits<double>::infinity();
@@ -233,25 +233,51 @@ bool Encoder::encodeStep() {
         bestC = gainvec.back().first;
         bestUsage = m_candidates[bestC];
         bestGain = gainvec.back().second;
-    }*/
+    }
 
     TimeVarT t3 = timeNow();
     std::cerr << "Elapsed time: " << duration( t3-t2 ) << " ms."<< std::endl;
-    printf( "Estimated gain %f, estimated usage: %d\n", bestGain, bestUsage );
-    static int decompositions =0;
+    //printf( "Estimated gain %f, estimated usage: %d\n", bestGain, bestUsage );
+
+
+    double totalGain =0.0; int totalMerge =0;
+    const int maxMerge = gainvec.size();
+    std::vector<Pattern*> usedps; // We need indepedent candidates, i.e. disjunct sets of patterns
+
+    for( auto&& cg : gainvec ) {
+
+        if( std::find( usedps.begin(), usedps.end(), cg.first.p1 ) == usedps.end() &&
+            std::find( usedps.begin(), usedps.end(), cg.first.p2 ) == usedps.end() ) {
+            
+            bool ff =false; // Flood fill
+            totalGain += processCandidate( cg, ff );
+
+            if( ff ) break;
+
+            usedps.push_back( cg.first.p1 );
+            usedps.push_back( cg.first.p2 );
+            if( ++totalMerge == maxMerge )
+                break;
+        }
+    }
+
+
+    TimeVarT t4 = timeNow();
+    std::cerr << "Merged " << totalMerge << " patterns. Elapsed time: " << duration( t4-t3 ) << " ms."<< std::endl;
+
     
-    if( bestGain <= 0.0 ) {
+    if( totalGain <= 0.0 ) {
         std::cout << "No compression gain." << std::endl;
 
         // Try additional decomposion before giving up
-        bool prune =false;
+       /* bool prune =false;
         for( auto p : *m_ct ) {
              prune = prunePattern( p, false ) || prune;
         }
         if( prune ) { 
             std::sort( m_instvec.begin(), m_instvec.end() );
             return true;
-        }
+        }*/
 
         m_isEncoded =true;
         rebuildInstanceMatrix();
@@ -266,37 +292,6 @@ bool Encoder::encodeStep() {
         return false;
     }
     
-    fprintf( stderr, "Merging '%d' and '%d' (%d,%d)...", 
-            bestC.p1->label(), bestC.p2->label(), bestC.offset.row(), bestC.offset.col());
-
-
-    mergePatterns( &bestC );
-
-    prunePattern( bestC.p1, true );
-    if( bestC.p1 != bestC.p2 )
-        prunePattern( bestC.p2, true );
-
-    double oldBits = m_encodedBits;
-
-    updateCodeLengths();
-    
-    TimeVarT t4 = timeNow();
-    std::cerr << "Elapsed time: " << duration( t4-t3 ) << " ms."<< std::endl;
-    printf( "Actual gain: %f\n", oldBits - m_encodedBits );
-    fprintf( stderr, "Computing decompositions... " );
-
-    if( std::abs((oldBits - m_encodedBits) - bestGain ) > 0.0001 ) {
-        printf( "\n*** Computed gain doesn't match! Panic! ***\n\n" );
-        computeGain( &bestC, bestUsage, true );
-        bestC.p1->debugPrint();
-        if( bestC.p1 != bestC.p2 )
-            bestC.p2->debugPrint();
-        for( auto&& p : *m_ct ) {
-            printf( "Pattern #%5d\t usage %d, %dx%d, codeword length %f (%s)\n",
-                p->label(), p->usage(), p->bounds().width, p->bounds().height, p->codeLength(), p->isActive() ? "active" : "inactive");
-        }
-        return false;
-    }
 
     /* Run prunePattern with decomposition */
     /*prunePattern( bestC.p1, false );
@@ -337,16 +332,19 @@ void
 Encoder::reencode() {
 
     m_instvec.clear();
+    m_instmat.clear();
 
     /* Iterate over all patterns in the CT, sorted descending by size */
     m_ct->sortBySizeDesc();
     for( Pattern* p : *m_ct ) {
 
+        if( !p->isActive() ) continue;
+        if( p->isTabu() ) continue;
         p->setActive( false );
         p->usage() =0;
 
-        for( int j =0; j < m_mat->width(); j++ ) {
-            for( int i =0; i < m_mat->height(); i++ ) {
+        for( int i =0; i < m_mat->height() - p->bounds().rowMax; i++ ) {
+            for( int j =-p->bounds().colMin; j < m_mat->width() - p->bounds().colMax; j++ ) {
                 Coord2D c =m_mat->makeCoord( i, j );
 
                 /* Test if p fits the matrix at pivot c */
@@ -360,7 +358,7 @@ Encoder::reencode() {
             }
         }
     }
-    rebuildInstanceMatrix();
+    rebuildInstanceMatrix( true );
 
     m_mat->unflagAll();
     updateCodeLengths();
@@ -385,12 +383,12 @@ Encoder::rebuildCandidateMap() {
     }
     if( m_instvec.size() != m_instanceMarker.size() ) {
         m_instanceMarker.resize( m_instvec.size() );
-        m_instanceMarker.assign( m_instvec.size(), 1UL << 63 );
+        m_instanceMarker.assign( m_instvec.size(), 1UL << 31 );
     }
 
     InstanceVector::IndexT odd =0;
     if( m_iteration % 2 != 0 )
-        odd = 1UL << 62;
+        odd = 1UL << 30;
 
     for( int i =0; i < m_instvec.size(); i++ ) {
         Instance &r1 = m_instvec[i];
@@ -458,14 +456,53 @@ Encoder::rebuildCandidateMap() {
     }*/
 }
 
+double
+Encoder::processCandidate( const CandidateGainT& pair, bool& usedFloodFill ) {
+
+
+    const Candidate& cand = pair.first;
+    double gain = pair.second;
+    
+    fprintf( stderr, "\tMerging '%4d' and '%4d' (%4d,%4d), predicted gain %.3f...\n", 
+            cand.p1->label(), cand.p2->label(), cand.offset.row(), cand.offset.col(), gain);
+
+    InstanceIndexVectorT prime; // Vector of instances changed by the merge 
+
+    mergePatterns( &cand, prime );
+
+    while( floodFill( prime ) ) usedFloodFill =true;
+//    if( floodFill( prime ) ) usedFloodFill = true;
+
+    prunePattern( cand.p1, true );
+    if( cand.p1 != cand.p2 )
+        prunePattern( cand.p2, true );
+
+    double oldBits = m_encodedBits;
+
+    updateCodeLengths();
+    
+    printf( "Actual gain: %f\n", oldBits - m_encodedBits );
+/*
+    if( std::abs((oldBits - m_encodedBits) - gain ) > 0.0001 ) {
+        printf( "\n*** Computed gain doesn't match! Panic! ***\n\n" );
+        cand.p1->debugPrint();
+        if( cand.p1 != cand.p2 )
+            cand.p2->debugPrint();
+        for( auto&& p : *m_ct ) {
+            printf( "Pattern #%5d\t usage %d, %dx%d, codeword length %f (%s)\n",
+                p->label(), p->usage(), p->bounds().width, p->bounds().height, p->codeLength(), p->isActive() ? "active" : "inactive");
+        }
+        return false;
+    }*/
+    return oldBits - m_encodedBits;
+}
+
 void 
-Encoder::mergePatterns( const Candidate* c ) {
+Encoder::mergePatterns( const Candidate* c, InstanceIndexVectorT& changelist ) {
     // Create the merged pattern
     Pattern* p_union = new Pattern( *c->p1, *c->v1, *c->p2, *c->v2, c->offset );
     p_union->setLabel( m_lastLabel++ );
     m_ct->push_back( p_union );
-
-    //assert( p_union->isCanonical() ); // Sanity check, creates a bit of overhead
 
     for( int i =0; i < m_instvec.size(); i++ ) {
         Instance &r1 = m_instvec[i];
@@ -504,10 +541,8 @@ Encoder::mergePatterns( const Candidate* c ) {
 
             r2.clear(); // Mark for deletion later on
             m_instvec[i] = Instance( p_union, pivot, v );
-
-            //m_instmat.remove( &r1 );
-            //m_instmat.remove( r2 );
             m_instmat.place( i, m_instvec[i] );
+            changelist.push_back( i );
 
             p_union->usage()++;
             p1->usage()--;
@@ -517,7 +552,81 @@ Encoder::mergePatterns( const Candidate* c ) {
         }
     }
     
-    printf( "Actual usage: %d, actual dimensions %d x %d\n", p_union->usage(), p_union->bounds().width, p_union->bounds().height );
+    printf( "\tActual usage: %d, actual dimensions %d x %d\n", p_union->usage(), p_union->bounds().width, p_union->bounds().height );
+}
+
+bool
+Encoder::floodFill( const InstanceIndexVectorT& insts ) {
+
+    if( insts.empty() ) return false;
+
+    Pattern *p1 =m_instvec[insts[0]].pattern();
+
+    Pattern::PeripheryT peri =p1->periphery( Pattern::AnteriorPeriphery );
+    peri.insert( peri.end(), p1->periphery( Pattern::PosteriorPeriphery ).begin(), p1->periphery( Pattern::PosteriorPeriphery ).end() );
+
+    int totalMerges =0;
+
+    for( auto && p_offset : peri ) {
+        Pattern::OffsetT ioffset;
+        Pattern *p2 = NULL, *p_union;
+        Variant *v;
+
+        // We need all instances to have the same neighboring pattern/instance at the same offset
+        for( auto i : insts ) {
+            const Instance& r1 =m_instvec[i];
+            Vouw::Coord2D coord = p_offset.abs( r1.pivot() );
+            InstanceMatrix::IndexT j =m_instmat[coord];
+            if( j == m_instmat.empty ) goto NO_MATCH;
+            const Instance& r2 =m_instvec[j];
+            if( r2.empty() ) goto NO_MATCH;
+            if( r2.pattern() == p1 ) goto NO_MATCH;
+            Pattern::OffsetT offset( r1.pivot(), r2.pivot() );
+
+            if( p2 != NULL ) {
+                if( p2 != r2.pattern() || ioffset != offset ) goto NO_MATCH;
+            } else {
+                p2 =r2.pattern();
+                ioffset =offset;
+            }
+        }
+
+        // We have a match, make a new pattern
+        
+        v =m_es->makeNullVariant();
+        p_union =new Pattern( *p1, *v, *p2, *v, ioffset );
+        p_union->setLabel( m_lastLabel++ );
+        p1->usage() =0;
+        p1->setActive( false );
+        p2->usage() -=insts.size();
+        if( p2->usage() == 0 ) p2->setActive( false );
+        p_union->usage() = insts.size();
+        m_ct->push_back( p_union );
+
+        // Apply the merge
+        for( auto i : insts ) {
+            const Instance& r1 =m_instvec[i];
+            Vouw::Coord2D coord = p_offset.abs( r1.pivot() );
+            InstanceMatrix::IndexT idx2 =m_instmat[coord];
+            Instance& r2 =m_instvec[idx2];
+            
+            Coord2D pivot =r1.pivot();
+
+            r2.clear(); // Mark for deletion later on
+            m_instvec[i] = Instance( p_union, pivot, v );
+            m_instmat.place( i, m_instvec[i] );
+
+            m_instanceCount--;
+        }
+        totalMerges++;
+        p1 =p_union;
+NO_MATCH:;
+    }
+
+    fprintf( stderr, "\tfloodFill: merged %d instances with %d adjacent instances (%d total merges).\n",
+            insts.size(), totalMerges, insts.size()*totalMerges );
+
+    return totalMerges != 0;
 }
 
 double
@@ -573,6 +682,9 @@ Encoder::computeGain( const Candidate* c, int usage, int modelSize, bool debugPr
 
     // The new size of the instance set is determined by the predicted usage of the union pattern
     const int totalInstances = totalCount() - usage;
+
+    // Temporary bias to account for the encoding of null-variants
+    //bits += usage;
 
     // For the instance set to decode correctly, its cardinality need to be known in advance
     //bits += uintCodeLength( totalCount() ) - uintCodeLength( totalInstances );

@@ -12,6 +12,8 @@
 #include <cassert>
 #include <cstdio>
 #include <cstring>
+#include <algorithm>
+
 
 VOUW_NAMESPACE_BEGIN
 
@@ -31,6 +33,11 @@ Pattern::OffsetT::abs( const Coord2D& c ) const {
 Pattern::OffsetT 
 Pattern::OffsetT::translate( const OffsetT& o ) const {
     return OffsetT( o.row() + row(), o.col() + col(), rowLength() );
+}
+
+Pattern::OffsetT 
+Pattern::OffsetT::negate() const {
+    return OffsetT( -row(), -col(), rowLength() );
 }
 
 DirT
@@ -279,7 +286,7 @@ Pattern::periphery( PeripheryPosition p ) const {
 
 void
 Pattern::debugPrint() const {
-    printf( "Pattern #%d, bounds {%d, %d, %d, %d, %d, %d}\n", label(),
+    fprintf( stderr, "Pattern #%d, bounds {%d, %d, %d, %d, %d, %d}\n", label(),
             bounds().rowMin, bounds().rowMax, bounds().colMin, bounds().colMax,
             bounds().width, bounds().height );
 
@@ -295,14 +302,27 @@ Pattern::debugPrint() const {
 
     for( int i =0; i < m; i++ ) {
         for( int j =0; j < n; j++ ) {
-            printf( "%c", matrix[i][j] );
+            fprintf( stderr, "%c", matrix[i][j] );
         }
-        printf( "\n" );
+        fprintf( stderr, "\n" );
     }
 }
 
 void 
 Pattern::unionAdd( const Pattern& p1, const Pattern& p2, const OffsetT& offs ) {
+
+    // Flip the order to make sure the pivot lies in row 0
+/*    if( offs.row() < 0 ) {
+        unionAdd( p2, p1, offs.negate() );
+        return;
+    }
+    if( offs.col() < 0 && offs.row() == 0 ) {
+        unionAdd( p2, p1, offs.negate() );
+        return;
+    }*/
+
+
+
     auto it1 = p1.elements().begin();
     auto it2 = p2.elements().begin();
     while( !(it1 == p1.elements().end() && it2 == p2.elements().end() ) ) {
@@ -349,7 +369,7 @@ Pattern::recomputePeriphery() {
             // If these elements are not adjacent, we need to fill the 'gaps'
             if( of.col() != curCol + 1 ) {
                 for( int j =curCol+1; j < of.col(); j++ )
-                    m_periphery[PosteriorPeriphery].push_back( OffsetT( curRow, j, m_rowLength ) );
+                    m_periphery[PosteriorPeriphery].push_back( OffsetT( curRow + m_bounds.rowMin, j, m_rowLength ) );
             }
             curCol =of.col();
         } else {
@@ -362,20 +382,38 @@ Pattern::recomputePeriphery() {
 
     // Create the periphery based on the first and last columns calculated above
     for( int i =0; i < rows; i++ ) {
+        int firstCol = columns[i][FirstCol];
         int lastCol = columns[i][LastCol];
         int maxCol = std::max( i == 0 ? lastCol : columns[i-1][LastCol], i >= rows-1 ? lastCol : columns[i+1][LastCol] );
+        int minCol = std::min( i == 0 ? firstCol : columns[i-1][FirstCol], i >= rows-1 ? firstCol : columns[i+1][FirstCol] );
         int row =i + m_bounds.rowMin;
 
+        // Anterior
+        for( int j =std::min( minCol, firstCol ); j <= firstCol; j++ )
+            m_periphery[AnteriorPeriphery].push_back( OffsetT( row, j-1, m_rowLength ) );
+        
+        // Posterior
         for( int j =lastCol; j <= std::max( maxCol, lastCol ); j++ )
             m_periphery[PosteriorPeriphery].push_back( OffsetT( row, j+1, m_rowLength ) );
     }
-
-    {
+    // Fill the first-1 and last+1 rows
+    { // Anterior
+        int firstCol = columns[0][FirstCol] -1, lastCol = columns[0][LastCol]+1;
+        for( int j =firstCol; j <= lastCol ; j++ )
+            m_periphery[AnteriorPeriphery].push_back( OffsetT( m_bounds.rowMin-1, j, m_rowLength ) );
+    }
+    { // Posterior
         int firstCol = columns[rows-1][FirstCol] -1, lastCol = columns[rows-1][LastCol]+1;
         for( int j =firstCol; j <= lastCol ; j++ )
             m_periphery[PosteriorPeriphery].push_back( OffsetT( m_bounds.rowMax+1, j, m_rowLength ) );
-
     }
+
+    for( auto offset : m_periphery[AnteriorPeriphery] )
+        if( std::find( m_periphery[PosteriorPeriphery].begin(),m_periphery[PosteriorPeriphery].end(), offset ) != m_periphery[PosteriorPeriphery].end() ) {
+            fprintf( stderr, "\n*******\nPeripheries overlap oh noes\n********\n\n" );
+            debugPrint();
+            return;
+        }
 
 }
 

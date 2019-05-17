@@ -46,11 +46,12 @@ find_package(Qt5Widgets)
 if( Qt5Widgets_FOUND )
     add_executable( qvouw 
         src/qvouw/main.cpp
-        src/qvouw/vouw.cpp
+        src/qvouw/qvouw.cpp
         src/qvouw/qvouw.qrc
         src/qvouw/vouwwidget.cpp
         src/qvouw/matrixwidget.cpp
         src/qvouw/mainwindow.cpp
+        src/qvouw/importdialog.cpp
         src/qvouw/vouwitemmodel.cpp)
 
 # Use the Widgets module from Qt 5.

@@ -1,33 +1,39 @@
+/*
+ * QVouw - Graphical User Interface for VOUW
+ *
+ * Micky Faas <micky@edukitty.org>
+ * (C) 2018, 2019, Leiden Institute for Advanced Computer Science
+ */
 #include "vouwitemmodel.h"
 #include <iostream>
 
 /* VouwItem implementation */
 
 VouwItem::VouwItem( Role r, VouwItem* parent ) 
-    :itemRole( r ), parentItem( parent ), obj( 0 ) {
+    :itemRole( r ), parentItem( parent ), hnd( nullptr ) {
     if( parent )
         parent->appendChild( this );
 }
 
 VouwItem::~VouwItem() {
     qDeleteAll( childList );
-    if( obj && itemRole == ROOT )
-        delete obj;
+    if( hnd && itemRole == ROOT )
+        delete hnd;
 }
 
 void 
-VouwItem::setObject( Vouw::Encoder* o ) {
-    obj =o;
+VouwItem::setHandle( QVouw::Handle *h ) {
+    hnd =h;
 }
 
-Vouw::Encoder* 
-VouwItem::object() const {
-    if( !obj )
+QVouw::Handle* 
+VouwItem::handle() const {
+    if( !hnd )
         if( !parentItem )
-            return 0;
+            return nullptr;
         else
-            return parentItem->object();
-    return obj;
+            return parentItem->handle();
+    return hnd;
 }
 
 void 
@@ -227,12 +233,12 @@ VouwItemModel::removeRows(int row, int count, const QModelIndex &parent) {
 }
 
 VouwItem* 
-VouwItemModel::add( Vouw::Encoder* v, const QString& name ) {
+VouwItemModel::add( QVouw::Handle* h, const QString& name ) {
     beginInsertRows( QModelIndex(), rootItem->childCount(), rootItem->childCount() );
 
     VouwItem *parent =new VouwItem( VouwItem::ROOT, rootItem );
     parent->setName( name );
-    parent->setObject( v );
+    parent->setHandle( h );
     new VouwItem( VouwItem::MATRIX, parent );
     new VouwItem( VouwItem::ENCODED, parent );
     new VouwItem( VouwItem::MODEL, parent );

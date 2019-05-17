@@ -22,7 +22,7 @@ inline bool instance_is_null( const Instance& );
 
 class InstanceVector : public std::vector<Instance> {
     public:
-        typedef size_type IndexT;
+        typedef uint32_t IndexT;
         InstanceVector( int matWidth =0, int matHeight =0, int matBase =0 );
         InstanceVector( const Matrix2D* mat );
         ~InstanceVector();
@@ -53,6 +53,8 @@ class InstanceVector : public std::vector<Instance> {
         double m_stdBitsPerPivot;
 //        double m_stdBitsPerVariant;
 };
+
+typedef std::vector<InstanceVector::IndexT> InstanceIndexVectorT;
 
 class Instance {
     public:

@@ -1,3 +1,9 @@
+/*
+ * QVouw - Graphical User Interface for VOUW
+ *
+ * Micky Faas <micky@edukitty.org>
+ * (C) 2018, 2019, Leiden Institute for Advanced Computer Science
+ */
 #include <QtWidgets>
 #include <QAction>
 #include <QFileDialog>
@@ -7,6 +13,7 @@
 #include "vouwwidget.h"
 #include "mainwindow.h"
 #include "vouwitemmodel.h"
+#include "importdialog.h"
 
 #include <vouw/codetable.h>
 
@@ -143,42 +150,49 @@ MainWindow::MainWindow() : QMainWindow(), currentItem( 0 )
 
 void
 MainWindow::importImagePrompt() {
+    QVouw::FileOpts opts;
+    opts.filetype = QVouw::IMAGE_IMPORT;
     QString selectedFilter;
-    QString fileName = QFileDialog::getOpenFileName(this,
+    opts.filename = QFileDialog::getOpenFileName(this,
                                 tr("Import image..."),
                                 "",
                                 tr("Images (*.jpg *.jpeg *.png *.bmp *.tiff)"),
                                 &selectedFilter);
-    if (fileName.isEmpty())
+    if (opts.filename.isEmpty())
         return;
-    
-    QStringList items;
-    items << "2" << "4" << "8" << "16" << "32";
 
-    bool ok;
-    QString item = QInputDialog::getItem(this, tr("Import options"),
-                                         tr("Quantization levels:"), items, 2, false, &ok);
-    if (ok && !item.isEmpty()) {
-        int levels = item.toInt();
-        importImage( fileName, levels );
+    ImportDialog dialog(this);
+    dialog.setOptsPtr( &opts );
+    dialog.exec();
+    
+    if (dialog.result() == QDialog::Accepted ) {
+        import( opts );
     }
 }
 
 void
-MainWindow::importImage( const QString& fileName, int levels ) {
+MainWindow::import( const QVouw::FileOpts& opts ) {
 
-    Vouw::Encoder* v= new ImageEncoder( fileName, levels );
-    if( !v->isValid() ) {
-        delete v;
+    QVouw::Handle *h =new QVouw::Handle( {0} );
+    h->opts =opts;
+
+    switch( opts.filetype ) {
+        case QVouw::IMAGE_IMPORT:
+            h->matrix = QVouw::importImage( opts );
+        break;
+    }
+    
+    if( !h->matrix ) {
+        delete h;
         QMessageBox::critical(this, tr("Error"),
-        tr("Could not load selected image. Please see log for details."),
+        tr("Could not import selected file. Please see log for details."),
         QMessageBox::Ok);
         QMessageBox::critical(this, tr("Error"),
-                fileName,
+                opts.filename,
                 QMessageBox::Ok);
         return;
     }
-    VouwItem* item = vouwModel->add( v, QFileInfo( fileName ).fileName() );
+    VouwItem* item = vouwModel->add( h, QFileInfo( opts.filename ).fileName() );
     if( !currentItem )
         setCurrentItem( item );
 }
@@ -205,7 +219,9 @@ MainWindow::timerEvent(QTimerEvent *event) {
 }
 
 void
-MainWindow::encode( Vouw::Encoder* v ) {
+MainWindow::encode( QVouw::Handle* h ) {
+    Vouw::Encoder *v = h->encoder;
+    if( !v ) return;
     if( showProgress ) {
     // To enable visualisation within the encoding steps, we call encodeStep() ourselves
         while( v->encodeStep() ){
@@ -222,17 +238,24 @@ MainWindow::encode( Vouw::Encoder* v ) {
 
 void 
 MainWindow::setCurrentItem( VouwItem* item ) {
-    Vouw::Encoder* v =item->object();
-    if( !v ) return;
+    QVouw::Handle* h =item->handle();
+    if( !h ) return;
 
     switch( item->role() ) {
         case VouwItem::ENCODED:
-            if( !v->isEncoded() )
-                encode( v );
-            vouwWidget->showEncoded( v );
+            if( !h->matrix ) return;
+            if( !h->encoder ) {
+                h->encoder = new Vouw::Encoder();
+            }
+            if( h->encoder->matrix() != h->matrix ) {
+                h->encoder->setFromMatrix( h->matrix, h->opts.use_tabu ); 
+            }
+            if( !h->encoder->isEncoded() )
+                encode( h );
+            vouwWidget->showEncoded( h->encoder );
             break;
         default:
-            vouwWidget->showMatrix( v->matrix() );
+            vouwWidget->showMatrix( h->matrix );
     }
 
     currentItem = item;
@@ -250,8 +273,11 @@ MainWindow::vouwItemDoubleClicked( const QModelIndex& index ) {
 void
 MainWindow::reencodeCurrent() { 
     if( !currentItem ) return;
+    
+    QVouw::Handle* h =currentItem->handle();
+    if( !h ) return;
 
-    Vouw::Encoder* v =currentItem->object();
+    Vouw::Encoder* v =h->encoder;
     if( !v ) return;
 
     if( !v->isEncoded() ) return;

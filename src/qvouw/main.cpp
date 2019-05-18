@@ -1,5 +1,12 @@
+/*
+ * QVouw - Graphical User Interface for VOUW
+ *
+ * Micky Faas <micky@edukitty.org>
+ * (C) 2018, 2019, Leiden Institute for Advanced Computer Science
+ */
 #include <QApplication>
 #include <QSurfaceFormat>
+#include <cstdio>
 
 #include "mainwindow.h"
 
@@ -20,6 +27,13 @@ int main(int argc, char *argv[])
 
     MainWindow window;
     window.show();
+
+    // This is not a great way to redirect stdout, but it seems to be complicated in general
+    freopen( ".stdout.tmp", "w", stdout );
+    window.addLogFile( ".stdout.tmp" );
+    
+    //freopen( ".stderr.tmp", "w", stderr );
+    //window.addLogFile( ".stderr.tmp" );
 
    // QStringList args = app.arguments();
     for( int i =1; i < argc; i++ ) {

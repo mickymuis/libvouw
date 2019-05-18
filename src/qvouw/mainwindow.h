@@ -11,6 +11,8 @@
 #include <QMainWindow>
 #include <QTextEdit>
 #include <QFile>
+#include <QVector>
+#include <cstdio>
 
 VOUW_NAMESPACE_BEGIN
 class Encoder;
@@ -28,6 +30,8 @@ class MainWindow : public QMainWindow
 public:
     MainWindow();
     void import( const QVouw::FileOpts& opts);
+
+    void addLogFile( const QString& filename );
 
 public slots:
     void importImagePrompt();
@@ -49,8 +53,7 @@ private:
     VouwItemModel* vouwModel;
     VouwItem* currentItem;
     QTextEdit* console;
-    QFile console_stderr;
-    QFile console_stdout;
+    QVector<QFile*> logfiles;
     bool showProgress;
 };
 

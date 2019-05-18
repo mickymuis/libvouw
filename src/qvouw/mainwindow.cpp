@@ -40,6 +40,7 @@ MainWindow::MainWindow() : QMainWindow(), currentItem( 0 )
     QAction* actQuit = new QAction(tr("&Quit"), this);
     actQuit->setShortcuts(QKeySequence::Quit);
     actQuit->setStatusTip(tr("Quit application"));
+    //connect(actQuit, &QAction::triggered, qApp, &QApplication::closeAllWindows);
     connect(actQuit, &QAction::triggered, this, &MainWindow::quit);
 
     QAction* actShowProg = new QAction(tr("Show progress"), this );
@@ -126,26 +127,10 @@ MainWindow::MainWindow() : QMainWindow(), currentItem( 0 )
     console->setReadOnly( true );
     consoleWindow->setWidget(console);
 
-    /* Redirect stdout and stderr */
-    *stdout =*fopen( ".stdout.tmp", "w" );
-    console_stdout.setFileName( ".stdout.tmp" );
-    console_stdout.open( QIODevice::ReadOnly );
-
-   /* *stderr =*fopen( ".stderr.tmp", "w" );
-    console_stderr.setFileName( ".stderr.tmp" );
-    console_stderr.open( QIODevice::ReadOnly );*/
-
     startTimer( 100 );
     
     setWindowTitle(tr("QVouw"));
     resize(800,600);
-
-   /* std::cout << "Poep" <<std::endl;
-    std::cerr << "Fout!"<<std::endl;
-
-    std::cout << "Test" << std::endl;
-    std::cout << "Bla";
-    std::cout << "Troep!" << std::endl; */
 }
 
 void
@@ -198,19 +183,36 @@ MainWindow::import( const QVouw::FileOpts& opts ) {
 }
 
 void
+MainWindow::addLogFile( const QString& filename ) {
+    QFile *file = new QFile();;
+    file->setFileName( filename );
+    file->open( QIODevice::ReadOnly );
+    if( !file->isOpen() ) {
+        std::cerr << "Could not open logfile " << filename.unicode() << std::endl;
+        delete file;
+        return;
+    }
+    logfiles.append( file );
+}
+
+void
 MainWindow::quit() {
-    QApplication::quit();
+    for( int i =0; i < logfiles.size(); i++ ) {
+        logfiles[i]->close();
+        delete logfiles[i];
+    }
+    qApp->closeAllWindows();
 }
 
 void 
 MainWindow::updateConsole() {
-   /* console->setTextColor( Qt::darkCyan );
-    while( console_stderr.bytesAvailable() )
-        console->append( console_stderr.readLine().trimmed() );*/
-
+   // console->setTextColor( Qt::darkCyan );
     console->setTextColor( Qt::darkBlue );
-    while( console_stdout.bytesAvailable() )
-        console->append( console_stdout.readLine().trimmed() );
+
+    for( int i =0; i < logfiles.size(); i++ ) {
+        while( logfiles[i]->bytesAvailable() )
+            console->append( logfiles[i]->readLine().trimmed() );
+    }
 }
 
 void

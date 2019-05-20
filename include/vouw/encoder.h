@@ -63,7 +63,7 @@ class Encoder {
         double computeDecompositionGain( const Pattern* p, int modelSize, bool debugPrint =false );
         double processCandidate( const CandidateGainT& pair, bool& usedFloodFill );
         void mergePatterns( const Candidate*, InstanceIndexVectorT& changelist );
-        bool floodFill( const InstanceIndexVectorT& );
+        bool floodFill( InstanceIndexVectorT& );
         bool prunePattern( Pattern*, bool onlyZeroPattern = true );
         void decompose( Instance& );
         void rebuildInstanceMatrix( bool sort = false );

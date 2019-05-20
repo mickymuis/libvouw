@@ -343,7 +343,7 @@ Encoder::reencode() {
         p->setActive( false );
         p->usage() =0;
 
-        for( int i =0; i < m_mat->height() - p->bounds().rowMax; i++ ) {
+        for( int i =-p->bounds().rowMin; i < m_mat->height() - p->bounds().rowMax; i++ ) {
             for( int j =-p->bounds().colMin; j < m_mat->width() - p->bounds().colMax; j++ ) {
                 Coord2D c =m_mat->makeCoord( i, j );
 
@@ -556,21 +556,25 @@ Encoder::mergePatterns( const Candidate* c, InstanceIndexVectorT& changelist ) {
 }
 
 bool
-Encoder::floodFill( const InstanceIndexVectorT& insts ) {
+Encoder::floodFill( InstanceIndexVectorT& insts ) {
 
     if( insts.empty() ) return false;
 
     Pattern *p1 =m_instvec[insts[0]].pattern();
 
+    // Obtain the peripheries of p1
     Pattern::PeripheryT peri =p1->periphery( Pattern::AnteriorPeriphery );
     peri.insert( peri.end(), p1->periphery( Pattern::PosteriorPeriphery ).begin(), p1->periphery( Pattern::PosteriorPeriphery ).end() );
 
     int totalMerges =0;
+    Pattern::OffsetT p_shift; // Value with which we shift each periphery offset, in case we need to swap pivots 
 
-    for( auto && p_offset : peri ) {
-        Pattern::OffsetT ioffset;
+    for( auto p_offset : peri ) {
+        p_offset =p_offset.translate( p_shift );
+        Pattern::OffsetT i_offset;
         Pattern *p2 = NULL, *p_union;
         Variant *v;
+        bool is_anterior =false;
 
         // We need all instances to have the same neighboring pattern/instance at the same offset
         for( auto i : insts ) {
@@ -584,17 +588,24 @@ Encoder::floodFill( const InstanceIndexVectorT& insts ) {
             Pattern::OffsetT offset( r1.pivot(), r2.pivot() );
 
             if( p2 != NULL ) {
-                if( p2 != r2.pattern() || ioffset != offset ) goto NO_MATCH;
+                if( p2 != r2.pattern() || i_offset != offset ) goto NO_MATCH;
             } else {
                 p2 =r2.pattern();
-                ioffset =offset;
+                i_offset =offset;
             }
         }
 
         // We have a match, make a new pattern
         
         v =m_es->makeNullVariant();
-        p_union =new Pattern( *p1, *v, *p2, *v, ioffset );
+        // Swap p1 and p2 if the offset is negative (to preserve pivot in row 0)
+        is_anterior = (i_offset.row() < 0) || (i_offset.row() == 0 && i_offset.col() < 0);
+        if( is_anterior ) {
+            p_union =new Pattern( *p2, *v, *p1, *v, i_offset.negate() );
+            p_shift =p_shift.translate( i_offset.negate() ); // Fix all periphery offset to come...
+        }
+        else
+            p_union =new Pattern( *p1, *v, *p2, *v, i_offset );
         p_union->setLabel( m_lastLabel++ );
         p1->usage() =0;
         p1->setActive( false );
@@ -604,15 +615,19 @@ Encoder::floodFill( const InstanceIndexVectorT& insts ) {
         m_ct->push_back( p_union );
 
         // Apply the merge
-        for( auto i : insts ) {
-            const Instance& r1 =m_instvec[i];
+        for( auto & i : insts ) {
+            Instance& r1 =m_instvec[i];
             Vouw::Coord2D coord = p_offset.abs( r1.pivot() );
-            InstanceMatrix::IndexT idx2 =m_instmat[coord];
-            Instance& r2 =m_instvec[idx2];
+            InstanceMatrix::IndexT i2 =m_instmat[coord];
+            Instance& r2 =m_instvec[i2];
             
-            Coord2D pivot =r1.pivot();
+            Coord2D pivot = is_anterior ? r2.pivot() : r1.pivot();
 
-            r2.clear(); // Mark for deletion later on
+            if( is_anterior ) {
+                r1.clear();
+                i = i2;
+            }
+            else r2.clear(); // Mark for deletion later on
             m_instvec[i] = Instance( p_union, pivot, v );
             m_instmat.place( i, m_instvec[i] );
 

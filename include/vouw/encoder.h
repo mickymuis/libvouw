@@ -12,6 +12,7 @@
 #include "instance_matrix.h"
 #include "massfunction.h"
 #include "candidate.h"
+#include "configuration.h"
 #include <map>
 
 VOUW_NAMESPACE_BEGIN
@@ -63,6 +64,7 @@ class Encoder {
         double computeDecompositionGain( const Pattern* p, int modelSize, bool debugPrint =false );
         double processCandidate( const CandidateGainT& pair, bool& usedFloodFill );
         void mergePatterns( const Candidate*, InstanceIndexVectorT& changelist );
+        void addPattern( Pattern* );
         bool floodFill( InstanceIndexVectorT& );
         bool prunePattern( Pattern*, bool onlyZeroPattern = true );
         void decompose( Instance& );
@@ -73,8 +75,8 @@ class Encoder {
         CodeTable* m_ct;
         InstanceVector m_instvec;
         InstanceMatrix m_instmat;
-        const MassFunction* m_massfunc;
         CandidateMapT m_candidates;
+        ConfigVectorT m_configvec;
         std::vector<InstanceVector::IndexT> m_instanceMarker;
         std::vector<Instance::BitmaskT> m_overlapMask;
 

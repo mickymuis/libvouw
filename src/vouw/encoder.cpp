@@ -71,22 +71,20 @@ Encoder::isValid() const {
 }
 
 void Encoder::setFromMatrix( Matrix2D* mat, bool useTabu ) {
-    //std::map<Matrix2D::ElementT,std::pair<Pattern*,Variant>> smap; // Singleton equivalence mapping
-
     clear();
     m_ct = new CodeTable( mat );
     m_instvec.setMatrixSize( mat->width(), mat->height(), mat->base() );
     m_instvec.reserve( mat->width() * mat->height() );
     m_instmat.setRowLength( mat->width() );
     m_mat =mat;
-    m_massfunc = &mat->distribution();
+    const MassFunction *massfunc = &mat->distribution();
     
     Matrix2D::ElementT tabuElem;
 
     if( useTabu ) {
         /* If tabu is enabled, we first find the value with the highest frequency */
         MassFunction::CountT freq =0;
-        for( auto pair : m_massfunc->elements() ) {
+        for( auto pair : massfunc->elements() ) {
             if( pair.second > freq ) {
                 freq =pair.second;
                 tabuElem =pair.first;
@@ -169,7 +167,6 @@ void Encoder::clear() {
     m_instvec.clear();
     m_instmat.clear();
     m_smap.clear();
-    m_massfunc = NULL;
 
     m_tabuCount =0;
     m_instanceCount =0;
@@ -265,7 +262,10 @@ bool Encoder::encodeStep() {
     TimeVarT t4 = timeNow();
     std::cerr << "Merged " << totalMerge << " patterns. Elapsed time: " << duration( t4-t3 ) << " ms."<< std::endl;
 
-    
+    printf( "Model: %d pattern in %d configurations.",
+            m_ct->size() - m_mat->distribution().uniqueElements() + (int)(m_tabuCount != 0),
+            m_configvec.size() - 1 ); // Not counting singletons
+
     if( totalGain <= 0.0 ) {
         std::cout << "No compression gain." << std::endl;
 
@@ -501,8 +501,7 @@ void
 Encoder::mergePatterns( const Candidate* c, InstanceIndexVectorT& changelist ) {
     // Create the merged pattern
     Pattern* p_union = new Pattern( *c->p1, *c->v1, *c->p2, *c->v2, c->offset );
-    p_union->setLabel( m_lastLabel++ );
-    m_ct->push_back( p_union );
+    addPattern( p_union );
 
     for( int i =0; i < m_instvec.size(); i++ ) {
         Instance &r1 = m_instvec[i];
@@ -553,6 +552,16 @@ Encoder::mergePatterns( const Candidate* c, InstanceIndexVectorT& changelist ) {
     }
     
     printf( "\tActual usage: %d, actual dimensions %d x %d\n", p_union->usage(), p_union->bounds().width, p_union->bounds().height );
+}
+
+void
+Encoder::addPattern( Pattern* p ) {
+    p->setLabel( m_lastLabel++ );
+    m_ct->push_back( p );
+    Configuration c( *p );
+    if( std::find( m_configvec.begin(), m_configvec.end(), c ) == m_configvec.end() ) {
+        m_configvec.push_back( c );
+    }
 }
 
 bool
@@ -606,13 +615,13 @@ Encoder::floodFill( InstanceIndexVectorT& insts ) {
         }
         else
             p_union =new Pattern( *p1, *v, *p2, *v, i_offset );
-        p_union->setLabel( m_lastLabel++ );
         p1->usage() =0;
         p1->setActive( false );
         p2->usage() -=insts.size();
         if( p2->usage() == 0 ) p2->setActive( false );
         p_union->usage() = insts.size();
-        m_ct->push_back( p_union );
+
+        addPattern( p_union );
 
         // Apply the merge
         for( auto & i : insts ) {
@@ -646,8 +655,7 @@ NO_MATCH:;
 
 double
 Encoder::updateCodeLengths() {
-    assert( m_massfunc );
-    m_ct->updateCodeLengths( totalCount(), *m_massfunc );
+    m_ct->updateCodeLengths( totalCount(), m_mat->distribution() );
     return (m_encodedBits =m_ct->totalLength());
 }
 

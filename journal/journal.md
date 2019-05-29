@@ -5,6 +5,21 @@ VOUW Project Journal
 
 ## Patterns and configurations (updated 29-5-2019)
 
+In a step towards the actual implementation of variants and noise tolerance, I have analysed one new component of the search space. Eventually, we want to be able to merge instances that are not strictly identical to the candidate. An example would be candidate `<X,Y,d>`. Normally we would merge all instances `\bar{X}` and `\bar{Y}` that are positioned by `d` relative to eachother. Suppose we also want to merge some `\bar{X}` with some `\bar{Z}` because `Z` is 'close' to `Y` and also at `d` relative to this `\bar{X}`. Apart from the problems that arise from judging if `Z` is indeed close to `Y`, I wanted to investigate what constraints can be imposed on `Z`.
+
+One important consideration is if `Z` should be isomorphic to `Y`, or put differently, if they have elements at the same ppositions. If `Z` has the same amount of elements at the same offsets as `Y`, I say that `Z` and `Y` are of the same *configuration* (term maybe subject to future change, haha). It is important that they have the same configuration because otherwise patterns `X+Y` and `X+Z` would also have different configurations. This seems hard if not impossible to encode (but I may be wrong).
+
+To asses whether the above constraint would yield any real-world possibilities in the search space, I have performed a small test where I plot the number of patterns and the number of configurations per iteration. If these number lie very close together, imposing aforementioned constraint would make it impossible to form variants later on. Ideally, we want their difference to be a factor of over two...
+
+![sonnet18](images/sonnet18.png "Sonnet 18")
+![eda1024](images/eda1024.png "eda1024")
+![smileys512x512](images/smileys512x512.png "smileys512x512")
+![noisy_triangles256](images/noisy_triangles256.png "noisy_triangles256")
+![turing2048](images/turing2048.png "turing2048")
+
+In the plots we can observe a similar trend for all datasets: the ratio patterns vs configurations is favorable in the beginning and declines towards the end (note that the plots use a log scale on both axes).
+
+
 ## Local search with flood-fill (updated ...)
 
 ## Theoretical complexity of patterns (updated ...)

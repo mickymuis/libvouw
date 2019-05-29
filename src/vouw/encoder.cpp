@@ -222,7 +222,7 @@ bool Encoder::encodeStep() {
 
     std::sort( gainvec.begin(), gainvec.end(), cg_gain_gt );
   
-    int bestUsage =0;
+   /* int bestUsage =0;
     double bestGain =-std::numeric_limits<double>::infinity();
     Candidate bestC;
 
@@ -230,7 +230,7 @@ bool Encoder::encodeStep() {
         bestC = gainvec.back().first;
         bestUsage = m_candidates[bestC];
         bestGain = gainvec.back().second;
-    }
+    }*/
 
     TimeVarT t3 = timeNow();
     std::cerr << "Elapsed time: " << duration( t3-t2 ) << " ms."<< std::endl;
@@ -245,7 +245,9 @@ bool Encoder::encodeStep() {
 
         if( std::find( usedps.begin(), usedps.end(), cg.first.p1 ) == usedps.end() &&
             std::find( usedps.begin(), usedps.end(), cg.first.p2 ) == usedps.end() ) {
-            
+           
+            if( m_iteration == 1 && totalMerge > 0 && cg.second < 0 ) break;
+
             bool ff =false; // Flood fill
             totalGain += processCandidate( cg, ff );
 
@@ -262,11 +264,14 @@ bool Encoder::encodeStep() {
     TimeVarT t4 = timeNow();
     std::cerr << "Merged " << totalMerge << " patterns. Elapsed time: " << duration( t4-t3 ) << " ms."<< std::endl;
 
-    printf( "Model: %d pattern in %d configurations.",
+    /*printf( "Model: %d pattern in %d configurations.\n",
+            m_ct->size() - m_mat->distribution().uniqueElements() + (int)(m_tabuCount != 0),
+            m_configvec.size() - 1 ); // Not counting singletons*/
+    printf( "%d, %d\n",
             m_ct->size() - m_mat->distribution().uniqueElements() + (int)(m_tabuCount != 0),
             m_configvec.size() - 1 ); // Not counting singletons
 
-    if( totalGain <= 0.0 ) {
+    if( totalGain <= 0.0 && m_iteration != 1 ) {
         std::cout << "No compression gain." << std::endl;
 
         // Try additional decomposion before giving up
@@ -282,11 +287,11 @@ bool Encoder::encodeStep() {
         m_isEncoded =true;
         rebuildInstanceMatrix();
 
-        for( auto&& p : *m_ct ) {
+      /*  for( auto&& p : *m_ct ) {
             if( p->isActive() )
                 printf( "Pattern #%5d\t usage %d, %dx%d, codeword length %f\n",
                     p->label(), p->usage(), p->bounds().width, p->bounds().height, p->codeLength() );
-        }
+        }*/
         printf( "Total number of succesfull decompositions: %d\n", m_decompositions );
 
         return false;
@@ -481,7 +486,7 @@ Encoder::processCandidate( const CandidateGainT& pair, bool& usedFloodFill ) {
 
     updateCodeLengths();
     
-    printf( "Actual gain: %f\n", oldBits - m_encodedBits );
+    fprintf( stderr, "Actual gain: %.3f\n", oldBits - m_encodedBits );
 /*
     if( std::abs((oldBits - m_encodedBits) - gain ) > 0.0001 ) {
         printf( "\n*** Computed gain doesn't match! Panic! ***\n\n" );
@@ -550,8 +555,6 @@ Encoder::mergePatterns( const Candidate* c, InstanceIndexVectorT& changelist ) {
             break;
         }
     }
-    
-    printf( "\tActual usage: %d, actual dimensions %d x %d\n", p_union->usage(), p_union->bounds().width, p_union->bounds().height );
 }
 
 void

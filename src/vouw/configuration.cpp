@@ -19,7 +19,8 @@ Configuration::setFromPattern( const Pattern& p ) {
     m_data.resize( p.bounds().width * p.bounds().height );
     int w = m_width = p.bounds().width;
     for( const auto & elem : p.elements() ) {
-        int key = elem.offset.row() * w + elem.offset.col();
+        int key = (elem.offset.row() - p.bounds().rowMin) * w 
+            + (elem.offset.col() - p.bounds().colMin);
         m_data[key] =true;
     }
 }

@@ -3,6 +3,18 @@
 VOUW Project Journal
 ====================
 
+## Patterns and configurations (updated 29-5-2019)
+
+## Local search with flood-fill (updated ...)
+
+## Theoretical complexity of patterns (updated ...)
+
+## On alternative heuristics (updated 29-5-2019)
+
+The general search heuristic that VOUW uses up until this point, is based on the typical greedy MDL-approach to always pick the candidate that results in the greatest reduction of the (two-part) MDL-equation. From here on I call this the 'Best 1' heuristic. As it name already implies, Best 1 picks only one candidate from the candidate selection process. Given that the candidate search is the bottleneck of the algorithm, we would ideally like to reuse as much information from it as possible. An obvious solution would be to try to merge as many candidates in one iteration as possible, the 'Best N' heuristic.
+
+As soon as we merge a candidate, multiple instances are affected and the coding inherently changes as well. To be able to correctly judge what candidate to merge next, we would always have to rebuild the entire candidate list. We can, however, make assumptions about the remaining set of candidates in the list. Say for example that we find candidate `<X,Y,d>` to be the best candidate at some point. We then know that the usages of patterns X and Y are reduced and therefore the gain and usage of candidates containing X and Y changes too. So it is obvious that we cannot use those candidate without further computations. Say we ignore all candidates with X and Y from now on and select the next-best candidate `<Z,W,d>`. Patterns Z and W were not affected and the usage for `<Z,W,d>` is still valid. Its gain is not, because the total number of instances has changed since the last merge. However, if we were to compute the gain again, we would obtain the same ranking as before. Therefore we can safely pick `<Z,W,d>` as the next candidate knowing it is the best of the current list of candidates. Would we also have picked `<Z,W,d>` if we had completely rebuilt the candidate list? That is hard to answer, although it is very likely.  
+
 
 ## Amending the instance matrix data struture (updated 17-4-2019 )
 

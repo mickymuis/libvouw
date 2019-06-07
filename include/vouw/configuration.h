@@ -8,12 +8,14 @@
 #pragma once
 
 #include "vouw.h"
-#include "pattern.h"
+//#include "pattern.h"
 
 #include <vector>
 #include <cinttypes>
 
 VOUW_NAMESPACE_BEGIN
+
+class Pattern;
 
 class Configuration {
     public:

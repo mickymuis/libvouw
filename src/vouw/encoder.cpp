@@ -19,6 +19,7 @@
 #include <iomanip>
 #include <cassert>
 #include <limits>
+#include <set>
 
 /* Chrono library used to measure execution time of various functions */
 #include <chrono>
@@ -268,12 +269,22 @@ bool Encoder::encodeStep() {
     TimeVarT t4 = timeNow();
     std::cerr << "Merged " << totalMerge << " patterns. Elapsed time: " << duration( t4-t3 ) << " ms."<< std::endl;
 
-    /*printf( "Model: %d pattern in %d configurations.\n",
-            m_ct->size() - m_mat->distribution().uniqueElements() + (int)(m_tabuCount != 0),
-            m_configvec.size() - 1 ); // Not counting singletons*/
-    printf( "%d, %d\n",
-            m_ct->size() - m_mat->distribution().uniqueElements() + (int)(m_tabuCount != 0),
-            m_configvec.size() - 1 ); // Not counting singletons
+    
+    /* This part is for statistics only
+     * It outputs the number of patterns vs the number of configurations */
+    int patterns =0, configs =0;
+    std::set<ConfigIDT> cfgset;
+    for( auto && p : *m_ct ) {
+        if( p->isActive() == false || p->size() == 1 || p->isTabu() ) continue;
+        if( cfgset.count( p->configuration() ) == 0 ) {
+            cfgset.insert( cfgset.end(), p->configuration() );
+            configs++;
+        }
+        patterns++;
+    }
+    printf( "%d, %d\n", patterns, configs );
+    /* End statistical part */
+
 
     if( totalGain <= 0.0 && m_iteration != 1 ) {
         std::cout << "No compression gain." << std::endl;
@@ -566,8 +577,12 @@ Encoder::addPattern( Pattern* p ) {
     p->setLabel( m_lastLabel++ );
     m_ct->push_back( p );
     Configuration c( *p );
-    if( std::find( m_configvec.begin(), m_configvec.end(), c ) == m_configvec.end() ) {
+    auto it =std::find( m_configvec.begin(), m_configvec.end(), c ); 
+    if( it == m_configvec.end() ) {
+        p->setConfiguration( m_configvec.size() ); // Index of the new element
         m_configvec.push_back( c );
+    } else {
+        p->setConfiguration( it - m_configvec.begin() );
     }
 }
 

@@ -8,6 +8,7 @@
 #pragma once
 #include "vouw.h"
 #include "matrix.h"
+#include "configuration.h"
 #include <vector>
 
 VOUW_NAMESPACE_BEGIN
@@ -140,6 +141,11 @@ class Pattern {
           * using the union constructors. */
         const CompositionT& composition() const { return m_composition; }
 
+        /** Set the user-defined configuration-id for this pattern*/
+        void setConfiguration( const ConfigIDT& id ) { m_config =id; }
+        /** Returns the used-defined configuration-id for this pattern */
+        ConfigIDT configuration() const { return m_config; }
+
         void debugPrint() const;
 
     private:
@@ -157,6 +163,7 @@ class Pattern {
         bool m_tabu;
         CompositionT m_composition;
         PeripheryT m_periphery[2];
+        ConfigIDT m_config;
 };
 
 inline bool pattern_is_active( const Pattern* p ) { return p->isActive(); }

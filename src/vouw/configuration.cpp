@@ -6,6 +6,7 @@
  */
 
 #include <vouw/configuration.h>
+#include <vouw/pattern.h>
 
 VOUW_NAMESPACE_BEGIN
 

@@ -42,6 +42,7 @@ protected:
 
 private slots:
     void vouwItemDoubleClicked(const QModelIndex&);
+    void encodeCurrent();
     void reencodeCurrent();
 
 private:
@@ -55,5 +56,8 @@ private:
     QTextEdit* console;
     QVector<QFile*> logfiles;
     bool showProgress;
+
+    Vouw::Encoder::LocalSearch localMode;
+    Vouw::Encoder::Heuristic heuristicMode;
 };
 

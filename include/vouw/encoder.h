@@ -23,6 +23,9 @@ class CodeTable;
 
 class Encoder {
     public:
+        enum LocalSearch { NoLocalSearch, FloodFill };
+        enum Heuristic { Best1, BestN };
+
         Encoder( EquivalenceSet* = new EquivalenceSet() );
         Encoder( Matrix2D* mat, EquivalenceSet* = new EquivalenceSet() );
         Encoder( Matrix2D* mat, CodeTable* ct, EquivalenceSet* = new EquivalenceSet() );
@@ -35,6 +38,12 @@ class Encoder {
 
         EquivalenceSet* equivalenceSet();
         void setEquivalenceSet( EquivalenceSet* ) ;
+
+        void setLocalSearchMode( LocalSearch c ) { m_local =c; }
+        int localSearchMode() const { return m_local; }
+
+        void setHeuristic( Heuristic c ) { m_heuristic =c; }
+        int heuristic() const { return m_heuristic; }
 
         void clear();
 
@@ -85,15 +94,16 @@ class Encoder {
         typedef std::map<Pattern*,int> PatternUsageMapT;
         SingletonEqvMapT m_smap; // Singleton equivalence mapping
         
-        int m_tabuCount;
-        int m_instanceCount;
-
         double m_priorBits;
         double m_encodedBits;
         bool m_isEncoded;
         int m_lastLabel;
         int m_decompositions;
         int m_iteration;
+        int m_tabuCount;
+        int m_instanceCount;
+        int m_local;
+        int m_heuristic;
         
 };
 

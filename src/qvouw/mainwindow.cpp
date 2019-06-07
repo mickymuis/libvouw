@@ -80,8 +80,42 @@ MainWindow::MainWindow() : QMainWindow(), currentItem( 0 )
     QAction* actResetView = new QAction(tr("Reset view"), this );
     connect( actResetView, &QAction::triggered, [=]( void ){ vouwWidget->zoomFill(); vouwWidget->setPan(0,0); } );
     
+    QAction* actEncode = new QAction(tr("Encode"), this );
+    connect( actEncode, &QAction::triggered, this, &MainWindow::encodeCurrent );
+    
     QAction* actReencode = new QAction(tr("Re-encode"), this );
     connect( actReencode, &QAction::triggered, this, &MainWindow::reencodeCurrent );
+    
+    /* Actiongroup to select heuristic */
+    QActionGroup* grpHeuristic = new QActionGroup( this );
+
+    QAction* actBest1 = new QAction(tr("Best 1"), this );
+    actBest1->setCheckable( true );
+    actBest1->setActionGroup( grpHeuristic );
+    connect( actBest1, &QAction::toggled, [=]( bool checked ){ heuristicMode = Vouw::Encoder::Best1; } );
+
+    QAction* actBestN = new QAction(tr("Best N"), this );
+    actBestN->setCheckable( true );
+    actBestN->setActionGroup( grpHeuristic );
+    connect( actBestN, &QAction::toggled, [=]( bool checked ){ heuristicMode = Vouw::Encoder::BestN; } );
+    actBestN->setChecked( true ); 
+    heuristicMode = Vouw::Encoder::BestN;
+    
+    /* Actiongroup to select local search mode */
+    QActionGroup* grpLocal = new QActionGroup( this );
+
+    QAction* actLocalNo = new QAction(tr("Disabled"), this );
+    actLocalNo->setCheckable( true );
+    actLocalNo->setActionGroup( grpLocal );
+    connect( actLocalNo, &QAction::toggled, [=]( bool checked ){ localMode = Vouw::Encoder::NoLocalSearch; } );
+
+    QAction* actLocalFF = new QAction(tr("Flood fill"), this );
+    actLocalFF->setCheckable( true );
+    actLocalFF->setActionGroup( grpLocal );
+    connect( actLocalFF, &QAction::toggled, [=]( bool checked ){ localMode = Vouw::Encoder::FloodFill; } );
+    actLocalFF->setChecked( true ); 
+    localMode = Vouw::Encoder::FloodFill;
+
     
     /* Menubar */
     QMenu* fileMenu = menuBar()->addMenu(tr("&File"));
@@ -103,7 +137,14 @@ MainWindow::MainWindow() : QMainWindow(), currentItem( 0 )
     viewMenu->addAction(actResetView);
     
     QMenu* toolsMenu = menuBar()->addMenu(tr("&Tools"));
+    toolsMenu->addAction( actEncode );
     toolsMenu->addAction( actReencode );
+    toolsMenu->addSection( tr( "Heuristic" ) );
+    toolsMenu->addAction( actBest1 );
+    toolsMenu->addAction( actBestN );
+    toolsMenu->addSection( tr( "Local Search Mode" ) );
+    toolsMenu->addAction( actLocalNo );
+    toolsMenu->addAction( actLocalFF);
 
 //    setLayout(mainLayout);
     /* List panel */
@@ -224,6 +265,9 @@ void
 MainWindow::encode( QVouw::Handle* h ) {
     Vouw::Encoder *v = h->encoder;
     if( !v ) return;
+    v->setHeuristic( heuristicMode );
+    v->setLocalSearchMode( localMode );
+
     if( showProgress ) {
     // To enable visualisation within the encoding steps, we call encodeStep() ourselves
         while( v->encodeStep() ){
@@ -242,26 +286,19 @@ void
 MainWindow::setCurrentItem( VouwItem* item ) {
     QVouw::Handle* h =item->handle();
     if( !h ) return;
+    
+    currentItem = item;
 
     switch( item->role() ) {
         case VouwItem::ENCODED:
-            if( !h->matrix ) return;
-            if( !h->encoder ) {
-                h->encoder = new Vouw::Encoder();
-            }
-            if( h->encoder->matrix() != h->matrix ) {
-                h->encoder->setFromMatrix( h->matrix, h->opts.use_tabu ); 
-            }
-            if( !h->encoder->isEncoded() )
-                encode( h );
-            vouwWidget->showEncoded( h->encoder );
+            if( h->encoder != nullptr )
+                vouwWidget->showEncoded( h->encoder );
+            else
+                encodeCurrent();
             break;
         default:
             vouwWidget->showMatrix( h->matrix );
     }
-
-    currentItem = item;
-
 }
 
 void 
@@ -288,5 +325,25 @@ MainWindow::reencodeCurrent() {
     vouwWidget->showEncoded( v );
     std::cout << "Compression ratio: " << std::setprecision(4) << v->ratio() * 100.0 << "%" << std::endl;
     std::cout << "Model: " << v->codeTable()->countIfActive() << " patterns, Instance Set: " << v->instanceSet()->size() << " regions." << std::endl;
+
+}
+
+void
+MainWindow::encodeCurrent() { 
+    if( !currentItem ) return;
+    QVouw::Handle* h =currentItem->handle();
+    if( !h ) return;
+    
+    if( !h->matrix ) return;
+    if( !h->encoder ) {
+        h->encoder = new Vouw::Encoder();
+    } else {
+        h->encoder->clear();
+    }
+    if( h->encoder->matrix() != h->matrix ) {
+        h->encoder->setFromMatrix( h->matrix, h->opts.use_tabu ); 
+    }
+    if( !h->encoder->isEncoded() )
+        encode( h );
 
 }

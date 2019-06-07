@@ -45,7 +45,9 @@ overlapCoeff( const Coord2D& piv1, const Coord2D& piv2, const Pattern::BoundsT& 
 Encoder::Encoder( EquivalenceSet* es ) : 
         m_es( es ),
         m_mat(0),
-        m_ct(0) {
+        m_ct(0),
+        m_local( NoLocalSearch ),
+        m_heuristic( Best1 ) {
     clear();
 }
 
@@ -161,9 +163,11 @@ void Encoder::setEquivalenceSet( EquivalenceSet* es ) {
 }
 
 void Encoder::clear() {
-    m_mat =0;
-    if( m_ct )
+    m_mat =nullptr;
+    if( m_ct ) {
         delete m_ct;
+        m_ct =nullptr;
+    }
     m_instvec.clear();
     m_instmat.clear();
     m_smap.clear();
@@ -238,7 +242,7 @@ bool Encoder::encodeStep() {
 
 
     double totalGain =0.0; int totalMerge =0;
-    const int maxMerge = gainvec.size();
+    const int maxMerge = m_heuristic == Best1 ? 1 : gainvec.size();
     std::vector<Pattern*> usedps; // We need indepedent candidates, i.e. disjunct sets of patterns
 
     for( auto&& cg : gainvec ) {
@@ -475,7 +479,7 @@ Encoder::processCandidate( const CandidateGainT& pair, bool& usedFloodFill ) {
 
     mergePatterns( &cand, prime );
 
-    while( floodFill( prime ) ) usedFloodFill =true;
+    while( m_local == FloodFill && floodFill( prime ) ) usedFloodFill =true;
 //    if( floodFill( prime ) ) usedFloodFill = true;
 
     prunePattern( cand.p1, true );

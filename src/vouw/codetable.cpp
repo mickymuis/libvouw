@@ -57,7 +57,7 @@ void CodeTable::updateCodeLengths( int totalInstances, const MassFunction& distr
 
     m_bits =ct_bits + inst_bits;// + totalInstances;
 
-    fprintf( stderr, "L(H) = %f, L(D|H) = %f\n", ct_bits, inst_bits );
+//    fprintf( stderr, "L(H) = %f, L(D|H) = %f\n", ct_bits, inst_bits );
 }
 
 void CodeTable::sortBySizeDesc() {

@@ -195,23 +195,10 @@ bool Encoder::encodeStep() {
     std::cerr << "Elapsed time: " << duration( t2-t1 ) << " ms."<< std::endl;
     fprintf( stderr, "Computing gain... " );
 
+    // We keep track of the modelsize during each iteration, because it is expensive to recompute
     int modelSize = m_ct->countIfActive();
-  /*  int bestUsage =0;
-    double bestGain =-std::numeric_limits<double>::infinity();
-    Candidate bestC;
 
-    for( auto&& pair : m_candidates ) {
-        if( pair.second <= 1 ) continue;
-        const Candidate& c = pair.first;
-
-        double gain = computeGain( &c, pair.second, modelSize );
-        if( gain >= bestGain ) {
-            bestGain =gain;
-            bestC =c;
-            bestUsage =pair.second;
-        }
-    }*/
-
+    // We estimate the gain for each candidate
     CandidateGainVectorT gainvec;
     for( auto&& pair : m_candidates ) {
         if( pair.second <= 1 ) continue;
@@ -254,7 +241,7 @@ bool Encoder::encodeStep() {
             if( m_iteration == 1 && totalMerge > 0 && cg.second < 0 ) break;
 
             bool ff =false; // Flood fill
-            totalGain += processCandidate( cg, ff );
+            totalGain += processCandidate( cg, ff, modelSize );
 
             if( ff ) break;
 
@@ -477,31 +464,33 @@ Encoder::rebuildCandidateMap() {
 }
 
 double
-Encoder::processCandidate( const CandidateGainT& pair, bool& usedFloodFill ) {
+Encoder::processCandidate( const CandidateGainT& pair, bool& usedFloodFill, int& modelSize ) {
 
 
     const Candidate& cand = pair.first;
     double gain = pair.second;
     
-    fprintf( stderr, "\tMerging '%4d' and '%4d' (%4d,%4d), predicted gain %.3f...\n", 
+    fprintf( stderr, "\tMerging '%4d' and '%4d' (%4d,%4d), predicted gain %.3f, ", 
             cand.p1->label(), cand.p2->label(), cand.offset.row(), cand.offset.col(), gain);
 
-    InstanceIndexVectorT prime; // Vector of instances changed by the merge 
+    InstanceIndexVectorT insts; // Vector of instances changed by the merge 
 
-    mergePatterns( &cand, prime );
+    mergePatterns( &cand, insts );
+    modelSize++;
+    modelSize -= (int)prunePattern( cand.p1, true );
+    if( cand.p1 != cand.p2 )
+        modelSize -= (int)prunePattern( cand.p2, true );
+    
+    // Debug only
+    double oldBits = m_encodedBits;
+    updateCodeLengths();
+    fprintf( stderr, "actual gain: %.3f\n", oldBits - m_encodedBits );
+    
 
-    while( m_local == FloodFill && floodFill( prime ) ) usedFloodFill =true;
+    while( m_local == FloodFill && floodFill( insts, modelSize ) ) usedFloodFill =true;
 //    if( floodFill( prime ) ) usedFloodFill = true;
 
-    prunePattern( cand.p1, true );
-    if( cand.p1 != cand.p2 )
-        prunePattern( cand.p2, true );
 
-    double oldBits = m_encodedBits;
-
-    updateCodeLengths();
-    
-    fprintf( stderr, "Actual gain: %.3f\n", oldBits - m_encodedBits );
 /*
     if( std::abs((oldBits - m_encodedBits) - gain ) > 0.0001 ) {
         printf( "\n*** Computed gain doesn't match! Panic! ***\n\n" );
@@ -587,7 +576,7 @@ Encoder::addPattern( Pattern* p ) {
 }
 
 bool
-Encoder::floodFill( InstanceIndexVectorT& insts ) {
+Encoder::floodFill( InstanceIndexVectorT& insts, int& modelSize ) {
 
     if( insts.empty() ) return false;
 
@@ -606,6 +595,8 @@ Encoder::floodFill( InstanceIndexVectorT& insts ) {
         Pattern *p2 = NULL, *p_union;
         Variant *v;
         bool is_anterior =false;
+        Candidate c;
+        double gain;
 
         // We need all instances to have the same neighboring pattern/instance at the same offset
         for( auto i : insts ) {
@@ -626,6 +617,16 @@ Encoder::floodFill( InstanceIndexVectorT& insts ) {
             }
         }
 
+        // Compute the expected gain for this 'candidate'
+        c = { p1, p2, nullptr, nullptr, i_offset };
+        gain =computeGain( &c, insts.size(), modelSize );
+        fprintf( stderr, "\tfloodfill: expecting %.3f bits gain, ", gain );
+
+        if( gain < 0.0 ) {
+            fprintf( stderr, "rejected.\n");
+            goto NO_MATCH;
+        }
+
         // We have a match, make a new pattern
         
         v =m_es->makeNullVariant();
@@ -640,7 +641,10 @@ Encoder::floodFill( InstanceIndexVectorT& insts ) {
         p1->usage() =0;
         p1->setActive( false );
         p2->usage() -=insts.size();
-        if( p2->usage() == 0 ) p2->setActive( false );
+        if( p2->usage() == 0 ) {
+            p2->setActive( false );
+            modelSize--;
+        }
         p_union->usage() = insts.size();
 
         addPattern( p_union );
@@ -666,11 +670,19 @@ Encoder::floodFill( InstanceIndexVectorT& insts ) {
         }
         totalMerges++;
         p1 =p_union;
+        // Debug only
+        {
+            double oldBits = m_encodedBits;
+            updateCodeLengths();
+            fprintf( stderr, "actual gain: %.3f\n", oldBits - m_encodedBits );
+        }
 NO_MATCH:;
     }
 
     fprintf( stderr, "\tfloodFill: merged %d instances with %d adjacent instances (%d total merges).\n",
             insts.size(), totalMerges, insts.size()*totalMerges );
+
+    assert( modelSize == m_ct->countIfActive() );
 
     return totalMerges != 0;
 }
@@ -866,7 +878,7 @@ Encoder::prunePattern( Pattern* p, bool onlyZeroPattern ) {
         //m_ct->remove( p );
         //delete p;
         p->setActive( false );
-        return false;
+        return false || onlyZeroPattern;
     }
     if( onlyZeroPattern || p->size() == 1 || p->isActive() == false ) return false;
 

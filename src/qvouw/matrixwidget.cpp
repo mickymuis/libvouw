@@ -39,6 +39,14 @@ MatrixWidget::showEncoded( Vouw::Encoder* v ) {
     update();
 }
 
+void 
+MatrixWidget::showError( Vouw::Encoder* v ) {
+    data.enc =v;
+    mode =ErrorMatrix;
+    setViewstate( (void*) v );
+    update();
+}
+
 void
 MatrixWidget::panBy( float x, float y ) {
     if( !vs ) return;
@@ -218,6 +226,17 @@ MatrixWidget::paintEvent( QPaintEvent *event ) {
 
                 painter.fillRect( rect, painter.brush() );
             }
+        }
+    } else if ( mode == ErrorMatrix ) {
+        for( auto && pair : data.enc->errorMap() ) {
+            Vouw::Coord2D c = pair.first;
+            QRectF rect( QPointF( c.col(), c.row() ), QPointF( c.col() + 1, c.row() + 1 ) );
+
+            if( hasSelection() && rect.contains( selectionCenter ) )
+                painter.setBrush( selectionBrush );
+            else painter.setBrush( colorValue( pair.second, data.mat->base() ) );
+
+            painter.fillRect( rect, painter.brush() );
         }
     } else { 
 

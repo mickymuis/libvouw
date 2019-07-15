@@ -296,6 +296,10 @@ MainWindow::setCurrentItem( VouwItem* item ) {
             else
                 encodeCurrent();
             break;
+        case VouwItem::ERROR:
+            if( h->encoder != nullptr )
+                vouwWidget->showError( h->encoder );
+            break;
         default:
             vouwWidget->showMatrix( h->matrix );
     }

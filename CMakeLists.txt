@@ -25,7 +25,8 @@ add_library (vouw STATIC
     src/vouw/equivalence.cpp
     src/vouw/massfunction.cpp
     src/vouw/encoder.cpp
-    src/vouw/noisy_equivalence.cpp)
+    src/vouw/noisy_equivalence.cpp
+    src/vouw/errormap.cpp )
 
 #add_executable (image-vouw 
 #    src/image-vouw/main.c)

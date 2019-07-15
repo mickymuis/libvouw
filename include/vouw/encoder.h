@@ -13,6 +13,7 @@
 #include "massfunction.h"
 #include "candidate.h"
 #include "configuration.h"
+#include "errormap.h"
 #include <map>
 
 VOUW_NAMESPACE_BEGIN
@@ -57,6 +58,8 @@ class Encoder {
         Matrix2D* matrix() const { return m_mat; }
         CodeTable* codeTable() const { return m_ct; }
         const InstanceVector* instanceSet() const { return &m_instvec; }
+        const ErrorMapT& errorMap() const { return m_errormap; }
+
         double uncompressedSize() const { return m_priorBits; }
         int totalCount() const { return m_instanceCount + m_tabuCount; }
 
@@ -75,6 +78,7 @@ class Encoder {
         void mergePatterns( const Candidate*, InstanceIndexVectorT& changelist );
         void addPattern( Pattern* );
         bool floodFill( InstanceIndexVectorT&, int& modelSize );
+        bool noisyFloodFill( InstanceIndexVectorT&, int& modelSize );
         bool prunePattern( Pattern*, bool onlyZeroPattern = true );
         void decompose( Instance& );
         void rebuildInstanceMatrix( bool sort = false );
@@ -86,6 +90,7 @@ class Encoder {
         InstanceMatrix m_instmat;
         CandidateMapT m_candidates;
         ConfigVectorT m_configvec;
+        ErrorMapT m_errormap; 
         std::vector<InstanceVector::IndexT> m_instanceMarker;
         std::vector<Instance::BitmaskT> m_overlapMask;
 

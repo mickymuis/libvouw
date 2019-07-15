@@ -21,6 +21,8 @@ double uintCodeLength( unsigned int n );
 
 double binom( unsigned int n, unsigned int k );
 
+
+// DEPRECATED
 enum DirT {
     DirNone =0,
     DirHoriz =1,

@@ -76,13 +76,16 @@ QVariant VouwItem::data(int column) const {
             return QString( QObject::tr( "Input matrix" ) );
             break;
         case ENCODED:
-            return QString( QObject::tr( "Encoded matrix" ) );
+            return QString( QObject::tr( "Instance matrix" ) );
             break;
         case MODEL:
             return QString( QObject::tr( "Model" ) );
             break;
         case PATTERN:
             return QString( QObject::tr( "Pattern #%1" ).arg( row() ) );
+            break;
+        case ERROR:
+            return QString( QObject::tr( "Error matrix" ) );
             break;
     };
     return QVariant();
@@ -242,6 +245,7 @@ VouwItemModel::add( QVouw::Handle* h, const QString& name ) {
     new VouwItem( VouwItem::MATRIX, parent );
     new VouwItem( VouwItem::ENCODED, parent );
     new VouwItem( VouwItem::MODEL, parent );
+    new VouwItem( VouwItem::ERROR, parent );
 
     endInsertRows();
 

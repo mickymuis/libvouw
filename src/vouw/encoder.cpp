@@ -125,8 +125,7 @@ void Encoder::setFromMatrix( Matrix2D* mat, bool useTabu ) {
                 if( !p ) {
                     // We need a new pattern, add it to the code table
                     p = new Pattern( elem, m_mat->width() );
-                    p->setLabel( m_lastLabel++ );
-                    m_ct->push_back( p );
+                    addPattern( p );
                     v = m_es->makeNullVariant();
                 }
 
@@ -172,6 +171,8 @@ void Encoder::clear() {
     m_instvec.clear();
     m_instmat.clear();
     m_smap.clear();
+    m_configvec.clear();
+    m_errormap.clear();
 
     m_tabuCount =0;
     m_instanceCount =0;
@@ -487,7 +488,7 @@ Encoder::processCandidate( const CandidateGainT& pair, bool& usedFloodFill, int&
     fprintf( stderr, "actual gain: %.3f\n", oldBits - m_encodedBits );
     
 
-    while( m_local == FloodFill && floodFill( insts, modelSize ) ) usedFloodFill =true;
+    while( m_local == FloodFill && noisyFloodFill( insts, modelSize ) ) usedFloodFill =true;
 //    if( floodFill( prime ) ) usedFloodFill = true;
 
 
@@ -575,6 +576,166 @@ Encoder::addPattern( Pattern* p ) {
     }
 }
 
+/** Noisy flood fill */
+bool
+Encoder::noisyFloodFill( InstanceIndexVectorT& insts, int& modelSize ) {
+
+    if( insts.empty() ) return false;
+
+    Pattern *p1 =m_instvec[insts[0]].pattern();
+
+    // Obtain the peripheries of p1
+    Pattern::PeripheryT peri =p1->periphery( Pattern::AnteriorPeriphery );
+    peri.insert( peri.end(), p1->periphery( Pattern::PosteriorPeriphery ).begin(), p1->periphery( Pattern::PosteriorPeriphery ).end() );
+
+    int totalMerges =0;
+    Pattern::OffsetT p_shift; // Value with which we shift each periphery offset, in case we need to swap pivots 
+
+    for( auto p_offset : peri ) {
+        // The offsets in the periphery may have changed as we may have shifted the pivot of the original pattern
+        // We apply this translation to accomodate for these changes
+        p_offset =p_offset.translate( p_shift );
+        Pattern::OffsetT i_offset;      // The actual offset between p1's and p2's pivots
+        Pattern *p2 = NULL, *p_union;   // Second pattern and the final union pattern
+        Variant *v;                     // ...
+        bool is_anterior =false;        // Are we looking in the anterior or posterior periphery?
+        Candidate c;                    // Just a struct for holding p1,p2 and i_offset
+        ConfigIDT cfg = -1;             // The configuration needs to be the same for all candidate patterns
+        double gain =0.0;               // Gain computed for this merge
+        using PmapT = std::map<Pattern*,int>;
+        PmapT pmap;                     // We keep track of how many times each specific pattern is encountered
+
+        // We need all instances to have the same neighboring pattern configuration/instance at the same offset
+        for( auto i : insts ) {
+            const Instance& r1 =m_instvec[i];
+            Vouw::Coord2D coord = p_offset.abs( r1.pivot() );
+            InstanceMatrix::IndexT j =m_instmat[coord];
+            if( j == m_instmat.empty ) goto NO_MATCH;
+            const Instance& r2 =m_instvec[j];
+            if( r2.empty() ) goto NO_MATCH;
+            if( r2.pattern() == p1 ) goto NO_MATCH;
+            Pattern::OffsetT offset( r1.pivot(), r2.pivot() );
+
+            // Configurations and offsets need to match for all candidates
+            if( cfg != -1 ) {
+                if( cfg != r2.pattern()->configuration() || i_offset != offset ) goto NO_MATCH;
+            } else {
+                cfg = r2.pattern()->configuration();
+                i_offset =offset;
+            }
+
+            // Add this specific pattern variety to the map
+            pmap[r2.pattern()]++;
+        }
+
+        // First, we try to discover the most prevalent pattern
+        { 
+            auto best_pair = std::max_element(pmap.begin(), pmap.end(),
+                [](const PmapT::value_type& p1, const PmapT::value_type& p2) {
+                    return p1.second < p2.second; } );
+
+            p2 =(*best_pair).first;
+        }
+
+        // Compute the additional cost of encoding errors for all patterns that do not match p2
+        {
+            for( auto pair : pmap ) {
+                if( pair.first == p2 ) continue;
+                int dist = errorCount( *p2, *pair.first );
+                assert( dist != -1 );
+                gain -= dist * pair.second * 
+                    errorCodeLength( m_mat->width(), m_mat->height(), m_mat->distribution().uniqueElements() );
+            }
+            if( gain != 0.0 ) {
+                fprintf( stderr, "\tfloodFill: additional cost for error-encoding: %.3f\n", gain ); 
+               // goto NO_MATCH; // TODO not implemented
+            }
+        }
+
+
+        // Compute the expected gain for this 'candidate'
+        c = { p1, p2, nullptr, nullptr, i_offset };
+        gain +=computeGain( &c, insts.size(), modelSize );
+        fprintf( stderr, "\tfloodFill: expecting %.3f bits gain, ", gain );
+
+        if( gain < 0.0 ) {
+            fprintf( stderr, "rejected.\n");
+            goto NO_MATCH;
+        }
+
+        // We have a match, make a new pattern
+        
+        v =m_es->makeNullVariant();
+        // Swap p1 and p2 if the offset is negative (to preserve pivot in row 0)
+        is_anterior = (i_offset.row() < 0) || (i_offset.row() == 0 && i_offset.col() < 0);
+        if( is_anterior ) {
+            p_union =new Pattern( *p2, *v, *p1, *v, i_offset.negate() );
+            p_shift =p_shift.translate( i_offset.negate() ); // Fix all periphery offset to come...
+        }
+        else
+            p_union =new Pattern( *p1, *v, *p2, *v, i_offset );
+        p1->usage() =0;
+        p1->setActive( false );
+        /*p2->usage() -=insts.size();
+        if( p2->usage() == 0 ) {
+            p2->setActive( false );
+            modelSize--;
+        }*/
+        p_union->usage() = insts.size();
+
+        addPattern( p_union );
+
+        // Apply the merge
+        for( auto & i : insts ) {
+            Instance& r1 =m_instvec[i];
+            Vouw::Coord2D coord = p_offset.abs( r1.pivot() );
+            InstanceMatrix::IndexT i2 =m_instmat[coord];
+            Instance& r2 =m_instvec[i2];
+            
+            Coord2D pivot = is_anterior ? r2.pivot() : r1.pivot();
+
+            r2.pattern()->usage()--;
+            if( r2.pattern()->usage() == 0 ) {
+                r2.pattern()->setActive( false );
+                modelSize--;
+            }
+
+            if( r2.pattern() != p2 ) {
+                // Encode error
+                errorMapDelta( m_errormap, *p2, *r2.pattern(), r2.pivot() );
+            }
+
+            if( is_anterior ) {
+                r1.clear();
+                i = i2;
+            }
+            else r2.clear(); // Mark for deletion later on
+            m_instvec[i] = Instance( p_union, pivot, v );
+            m_instmat.place( i, m_instvec[i] );
+
+            m_instanceCount--;
+        }
+        totalMerges++;
+        p1 =p_union;
+        // Debug only
+        {
+            double oldBits = m_encodedBits;
+            updateCodeLengths();
+            fprintf( stderr, "actual gain: %.3f\n", oldBits - m_encodedBits );
+        }
+NO_MATCH:;
+    }
+
+    fprintf( stderr, "\tfloodFill: merged %d instances with %d adjacent instances (%d total merges).\n",
+            insts.size(), totalMerges, insts.size()*totalMerges );
+
+    assert( modelSize == m_ct->countIfActive() );
+
+    return totalMerges != 0;
+}
+
+
+/** Flood fill */
 bool
 Encoder::floodFill( InstanceIndexVectorT& insts, int& modelSize ) {
 

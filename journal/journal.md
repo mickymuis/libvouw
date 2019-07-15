@@ -22,7 +22,13 @@ In the plots we can observe a similar trend for all datasets: the ratio patterns
 
 ## Local search with flood-fill (updated ...)
 
-## Theoretical complexity of patterns (updated ...)
+## Theoretical complexity of patterns (updated 15-7-2019)
+
+To determine the overall complexity of the algorithm, we need to look at the most complex operation. Candidate search is by far the most complex operation in VOUW and therefore we can measure theoretical performance by estimating how many times candidate search is performed in terms of input. It is 'easy' to give an upper bound for the number of searches, but that is not very usefull (and results in a very ugly factorial). Another way to look at the search complexity, is to use the size of the patterns we hope to find. Say that a dataset contains a pattern `X` of size `|X|`. It will for this pattern then take up to `|X|-1` iterations to be found. Assuming we use the 'Best 1' heuristic, an identical number of searches will have to be performed. The figure of `|X|-1` is the worst case scenario, assuming that `X` is formed by adding a singleton pattern to it on each iteration. (Notice that fortunately, the complexity is `|X|-1` regardless of how many times `X` occurs.)
+
+In the best possible scenario it would only take `log(|X|)` iterations to form `X`. This would be equivalent to divide-and-conquer or first merging all singletons of `X` into patterns of size two, then merging those into patterns of size four, etc. This is an unlikely scenario as we pick the encoding in such way that a single large pattern is favoured over many smaller patterns (because fewer patterns are apparently a better description). In reality the number of iterations will lie very close to the worst case with the exception for patterns that contain another, smaller and more prevalent pattern `Y`. In that case, this `Y` will be discovered first after which some of the work for `X` is already done as a by-product.
+
+As we cannot hope to improve the worst case situation at all, we may try to improve the average case. The previous paragraph suggests that the current behavior is a direct result of the 'MDL-way' of searching and cannot be changed. While this can indeed not be changed globally, we could try a local search method. One way to implement this is to look after each successfull merge if the resulting pattern belongs to a bigger and equally prevalent pattern. I will describe this method (flood-fill) later in greater detail. Another way to approach this idea is to globally limit the maximum size of patterns we are looking for, and gradually increase this limit. Theoretically this enables the algorithm to find smaller (sub)patterns first and use them as building blocks later to create larger patterns. Further experiments would be needed to show if this changes the search space in a positive way or not.  
 
 ## On alternative heuristics (updated 29-5-2019)
 

@@ -20,7 +20,8 @@ public:
         MATRIX,
         ENCODED,
         MODEL,
-        PATTERN
+        PATTERN,
+        ERROR
     };
     explicit VouwItem( Role, VouwItem* parent =0 );
     ~VouwItem();

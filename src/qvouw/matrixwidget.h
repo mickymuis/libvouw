@@ -16,7 +16,7 @@
 class MatrixWidget : public QWidget {
 Q_OBJECT
 public:
-    enum Mode { None, InputMatrix, InstanceMatrix, Pattern };
+    enum Mode { None, InputMatrix, InstanceMatrix, ErrorMatrix, Pattern };
     enum Option { HideSingletons =1, ShowPivots =2, ShowPeriphery =4 };
 
     MatrixWidget( QWidget *parent =0 );
@@ -24,6 +24,7 @@ public:
 
     void showMatrix( Vouw::Matrix2D* mat );
     void showEncoded( Vouw::Encoder* v );
+    void showError( Vouw::Encoder* v );
     
     void panBy( float x, float y );
     void setPan( float x, float y );

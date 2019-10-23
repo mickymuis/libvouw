@@ -647,7 +647,7 @@ Encoder::noisyFloodFill( InstanceIndexVectorT& insts, int& modelSize ) {
                     errorCodeLength( m_mat->width(), m_mat->height(), m_mat->distribution().uniqueElements() );
             }
             if( gain != 0.0 ) {
-                fprintf( stderr, "\tfloodFill: additional cost for error-encoding: %.3f\n", gain ); 
+               // fprintf( stderr, "\tfloodFill: additional cost for error-encoding: %.3f\n", gain ); 
                // goto NO_MATCH; // TODO not implemented
             }
         }
@@ -656,10 +656,10 @@ Encoder::noisyFloodFill( InstanceIndexVectorT& insts, int& modelSize ) {
         // Compute the expected gain for this 'candidate'
         c = { p1, p2, nullptr, nullptr, i_offset };
         gain +=computeGain( &c, insts.size(), modelSize );
-        fprintf( stderr, "\tfloodFill: expecting %.3f bits gain, ", gain );
+        //fprintf( stderr, "\tfloodFill: expecting %.3f bits gain, ", gain );
 
         if( gain < 0.0 ) {
-            fprintf( stderr, "rejected.\n");
+            //fprintf( stderr, "rejected.\n");
             goto NO_MATCH;
         }
 
@@ -721,13 +721,13 @@ Encoder::noisyFloodFill( InstanceIndexVectorT& insts, int& modelSize ) {
         {
             double oldBits = m_encodedBits;
             updateCodeLengths();
-            fprintf( stderr, "actual gain: %.3f\n", oldBits - m_encodedBits );
+            //fprintf( stderr, "actual gain: %.3f\n", oldBits - m_encodedBits );
         }
 NO_MATCH:;
     }
 
-    fprintf( stderr, "\tfloodFill: merged %d instances with %d adjacent instances (%d total merges).\n",
-            insts.size(), totalMerges, insts.size()*totalMerges );
+    //fprintf( stderr, "\tfloodFill: merged %d instances with %d adjacent instances (%d total merges).\n",
+    //        insts.size(), totalMerges, insts.size()*totalMerges );
 
     assert( modelSize == m_ct->countIfActive() );
 
@@ -781,10 +781,10 @@ Encoder::floodFill( InstanceIndexVectorT& insts, int& modelSize ) {
         // Compute the expected gain for this 'candidate'
         c = { p1, p2, nullptr, nullptr, i_offset };
         gain =computeGain( &c, insts.size(), modelSize );
-        fprintf( stderr, "\tfloodfill: expecting %.3f bits gain, ", gain );
+        //fprintf( stderr, "\tfloodfill: expecting %.3f bits gain, ", gain );
 
         if( gain < 0.0 ) {
-            fprintf( stderr, "rejected.\n");
+            //fprintf( stderr, "rejected.\n");
             goto NO_MATCH;
         }
 
@@ -832,16 +832,16 @@ Encoder::floodFill( InstanceIndexVectorT& insts, int& modelSize ) {
         totalMerges++;
         p1 =p_union;
         // Debug only
-        {
+       /* {
             double oldBits = m_encodedBits;
             updateCodeLengths();
             fprintf( stderr, "actual gain: %.3f\n", oldBits - m_encodedBits );
-        }
+        }*/
 NO_MATCH:;
     }
 
-    fprintf( stderr, "\tfloodFill: merged %d instances with %d adjacent instances (%d total merges).\n",
-            insts.size(), totalMerges, insts.size()*totalMerges );
+    //fprintf( stderr, "\tfloodFill: merged %d instances with %d adjacent instances (%d total merges).\n",
+    //        insts.size(), totalMerges, insts.size()*totalMerges );
 
     assert( modelSize == m_ct->countIfActive() );
 

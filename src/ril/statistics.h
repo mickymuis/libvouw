@@ -12,7 +12,7 @@
 class Statistics {
     public:
         struct Sample {
-            int patterns_in, patterns_out;
+            int patterns_in, patterns_out, patterns_out_total;
             double compression, snr_in;
             int total_time;
         };

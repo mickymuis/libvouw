@@ -63,7 +63,7 @@ Ril::generate() {
         noise_dist = std::uniform_int_distribution<int>(0,ropts.parms.symCount-1);
         signal_dist = std::uniform_int_distribution<int>(0,ropts.parms.symCount-1);
     } else {
-        signal_dist = std::uniform_int_distribution<int>(1,ropts.parms.symCount);
+        signal_dist = std::uniform_int_distribution<int>(1,ropts.parms.symCount-1);
     }
 
     mat->clear();
@@ -73,7 +73,7 @@ Ril::generate() {
         snr = (double)flagCount / (double)mat->count();
         //printf( "snr = %f\n", snr );
         if( snr >= ropts.parms.targetSNR ) break;
-        if( !generatePattern2() ) continue;
+        if( !generatePattern2() ) break;
     }
     
     if( ropts.parms.noise ) {

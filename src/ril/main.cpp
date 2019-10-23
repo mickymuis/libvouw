@@ -18,6 +18,8 @@
 #include <cmath>
 #include <iostream>
 #include <chrono>
+#include <functional>
+#include <algorithm>
 
 typedef std::chrono::high_resolution_clock::time_point TimeVarT;
 
@@ -28,13 +30,23 @@ typedef std::chrono::high_resolution_clock::time_point TimeVarT;
 #include "statistics.h"
 
 #define DIM_MAX 65535
+struct Opts {
+    int repeats;
+    std::string outFilename;
+    bool encode;
+    char separator;
+    double maxErr;
+};
+
+static struct Opts OPTS_DEFAULTS = {1,"",false,'\t',.25};
 
 struct VouwOpts {
     Vouw::Encoder::LocalSearch ls;
     Vouw::Encoder::Heuristic heur;
+    bool tabu;
 };
 
-static struct VouwOpts VOUWOPTS_DEFAULTS = { Vouw::Encoder::FloodFill, Vouw::Encoder::BestN };
+static struct VouwOpts VOUWOPTS_DEFAULTS = { Vouw::Encoder::FloodFill, Vouw::Encoder::BestN, false };
 
 void
 printHelp( const char* exec ) {
@@ -46,22 +58,24 @@ General options:\n\
 \t-n\tNumber of generated matrices in total (1 by default).\n\
 \t-f\tUse specified type for storing the output matrices (default 'pgm').\n\
 \t-o\tStore the generated matrices with the specified filename (not stored if not specified).\n\
-\t-e\tEncode the generated matrix/matrices using VOUW and print statistics\n\
-\t-s\tSet separator character for printing statistics (defaults to tab)\n\
+\t-e\tEncode the generated matrix/matrices using VOUW and print statistics.\n\
+\t-s\tSet separator character for printing statistics (defaults to tab).\n\
+\t-b\tMaximum error factor in size/usage when counting patterns (statistics only).\n\
 \t-h\tPrint this information.\n\
 Options to RIL (specify using -r)\n\
 \tw=\tWidth (number of columns) of the generated matrix.\n\
 \th=\tHeight (number of rows) of the generated matrix.\n\
 \ta=\tSize of the alphabet (number of symbols, 256 by default).\n\
-\ts=\tMin and max pattern size as an interval, e.g. 10:20 (inclusive)\n\
-\tu=\tMin and max pattern occurence as an interval, e.g. 5:30 (inclusive)\n\
-\tr=\tDesired signal-to-noise ratio, accepts values from 0.0 to 1.0\n\
-\tn=\tGenerate uniform noise (1, default) or no noise (0, debug only)\n\
+\ts=\tMin and max pattern size as an interval, e.g. 10:20 (inclusive).\n\
+\tu=\tMin and max pattern occurence as an interval, e.g. 5:30 (inclusive).\n\
+\tr=\tDesired signal-to-noise ratio, accepts values from 0.0 to 1.0.\n\
+\tn=\tGenerate uniform noise (1, default) or no noise (0, debug only).\n\
 \tb=\tAllowed branching factor when generating patterns. '0' gives 'flat' patterns (default).\n\
 Options to VOUW (specify using -v)\n\
-\tf=\tSet local search using flood-fill to either off (0) or on (1)\n\
-\tb1\tUse 'Best 1' heuristic\n\
-\tbn\tUse 'Best N' heuristic\n\
+\tf=\tSet local search using flood-fill to either off (0) or on (1).\n\
+\tb1\tUse 'Best 1' heuristic.\n\
+\tbn\tUse 'Best N' heuristic.\n\
+\tt \tDisregard background ('tabu' mode).\n\
 ", exec );
 }
 
@@ -145,7 +159,7 @@ bool
 parseVOUWArg( VouwOpts& vopts, const char *arg ) {
 
     int l =strlen( arg );
-    if( l < 2 ) return false;
+    if( l < 1 ) return false;
 
     switch( arg[0] ) {
         case 'f': 
@@ -157,6 +171,7 @@ parseVOUWArg( VouwOpts& vopts, const char *arg ) {
                 return b;
             }
         case 'b':
+            if( l < 2 ) return false;
             switch( arg[1] ) {
                 case '1':
                     vopts.heur = Vouw::Encoder::Best1;
@@ -167,6 +182,9 @@ parseVOUWArg( VouwOpts& vopts, const char *arg ) {
                 default:
                     return false;
             }
+            break;
+        case 't':
+            vopts.tabu =true;
             break;
         default:
             return false;
@@ -195,10 +213,28 @@ setFilenameNumber( RilOpts& ropts, std::string filename, int n, int total ) {
     ropts.outFilename =ss.str();
 }
 
+/** Test whether a pattern fits the requirements of a pattern that we expect to find given the input data */
 bool
-encode( Vouw::Matrix2D* mat, Statistics::Sample& s, const RilOpts& ropts, const VouwOpts& vopts ) {
-    Vouw::Encoder e( mat );
+patternIsExpected( const Vouw::Pattern* p, const Opts& opts, const RilOpts& ropts ) {
 
+    if( !p->isActive() ) return false;
+    if( p->size() == 1 ) return false; // Singleton
+    if( p->size() < ((double)ropts.parms.minSize - (double)ropts.parms.minSize * opts.maxErr)
+    ||  p->size() > ((double)ropts.parms.maxSize + (double)ropts.parms.maxSize * opts.maxErr) )
+        return false;
+    
+    if( p->usage() < ((double)ropts.parms.minUsage - (double)ropts.parms.minUsage * opts.maxErr)
+    ||  p->usage() > ((double)ropts.parms.maxUsage + (double)ropts.parms.maxUsage * opts.maxErr) )
+        return false;
+
+    return true;
+}
+
+bool
+encode( Vouw::Matrix2D* mat, Statistics::Sample& s, const Opts& opts, const RilOpts& ropts, const VouwOpts& vopts ) {
+    Vouw::Encoder e;
+
+    e.setFromMatrix( mat, vopts.tabu );
     e.setLocalSearchMode( vopts.ls );
     e.setHeuristic( vopts.heur );
 
@@ -208,7 +244,12 @@ encode( Vouw::Matrix2D* mat, Statistics::Sample& s, const RilOpts& ropts, const 
 
     s.total_time =DURATION(stop-start);
     s.compression =e.ratio();
-    s.patterns_out =e.codeTable()->countIfActiveGTE( ropts.parms.minSize );
+
+    // Let's count the patterns
+    auto f =std::bind( patternIsExpected, std::placeholders::_1, opts, ropts );
+
+    s.patterns_out =std::count_if( e.codeTable()->begin(), e.codeTable()->end(), f );
+    s.patterns_out_total =e.codeTable()->countIfActiveNonSingleton();
 
     return true;
 }
@@ -224,16 +265,10 @@ main( int argc, char **argv ) {
 
     RilOpts ropts  = RILOPTS_DEFAULTS;
     VouwOpts vopts = VOUWOPTS_DEFAULTS;
-
-    struct {
-        int repeats;
-        std::string outFilename;
-        bool encode;
-        char separator;
-    } opts = {1,"",false,'\t'};
+    Opts opts      = OPTS_DEFAULTS;
 
     int opt;
-    while( (opt = getopt( argc, argv, "ev:r:n:f:o:s:h" )) != -1 ) {
+    while( (opt = getopt( argc, argv, "ev:r:n:f:o:s:b:h" )) != -1 ) {
         switch( opt ) {
             case 'e':
                 opts.encode =true;
@@ -261,6 +296,9 @@ main( int argc, char **argv ) {
                 break;
             case 's':
                 opts.separator = optarg[0];
+                break;
+            case 'b':
+                opts.maxErr = atof( optarg );
                 break;
             case 'h':
             default:
@@ -321,7 +359,7 @@ main( int argc, char **argv ) {
         s.snr_in        =ril.effectiveSNR();
 
         if( opts.encode ) {
-            if( !encode( ril.matrix(), s, ropts, vopts ) ) {
+            if( !encode( ril.matrix(), s, opts, ropts, vopts ) ) {
                 err =-1; break;
             }
         }

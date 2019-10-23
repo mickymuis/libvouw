@@ -9,6 +9,7 @@
 #include "vouw.h"
 #include <list>
 #include <algorithm>
+#include <functional>
 
 VOUW_NAMESPACE_BEGIN
 
@@ -17,6 +18,7 @@ class Matrix2D;
 class MassFunction;
 
 inline bool pattern_is_active( const Pattern* );
+inline bool pattern_is_active_gte( const Pattern*, int minSize );
 
 class CodeTable : public std::list<Pattern*> {
     public:
@@ -28,6 +30,8 @@ class CodeTable : public std::list<Pattern*> {
         void sortBySizeDesc();
 
         inline int countIfActive() const { return std::count_if( begin(), end(), pattern_is_active ); }
+        inline int countIfActiveNonSingleton() const { return countIfActiveGTE( 2 ); }
+        int countIfActiveGTE( int minSize ) const;
         double totalLength() const { return m_bits; }
         //double bitsPerOffset() const { return m_stdBitsPerOffset; }
 

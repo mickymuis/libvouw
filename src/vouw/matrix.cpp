@@ -132,8 +132,8 @@ Matrix2D::unflagAll() {
 
 bool
 Matrix2D::checkBounds( const Coord2D& c ) const {
-    if( c.row() >= height() ) return false;
-    if( c.col() >= width() ) return false;
+    if( c.row() < 0 || c.row() >= height() ) return false;
+    if( c.col() < 0 || c.col() >= width() ) return false;
     return true;
 }
 

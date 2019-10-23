@@ -12,6 +12,8 @@
 #include <cmath>
 #include <algorithm>
 
+using namespace std::placeholders;
+
 VOUW_NAMESPACE_BEGIN
 
 CodeTable::CodeTable( int matWidth, int matHeight, int matBase) : 
@@ -28,6 +30,13 @@ CodeTable::CodeTable( const Matrix2D* mat ) :
 
 CodeTable::~CodeTable() {
     for( auto&& p : *this ) delete p;
+}
+
+int 
+CodeTable::countIfActiveGTE( int minSize ) const 
+{ 
+    auto f = std::bind( pattern_is_active_gte, _1, minSize ); 
+    return std::count_if( begin(), end(), f ); 
 }
 
 void CodeTable::updateCodeLengths( int totalInstances, const MassFunction& distr ) {

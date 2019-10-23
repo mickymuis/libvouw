@@ -2,7 +2,7 @@
  * VOUW - Spatial, compression-based pattern mining on matrices
  *
  * Micky Faas <micky@edukitty.org>
- * (C) 2018, Leiden Institute for Advanced Computer Science
+ * (C) 2017-2019, Leiden Institute for Advanced Computer Science
  */
 
 #include <vouw/encoder.h>
@@ -488,7 +488,7 @@ Encoder::processCandidate( const CandidateGainT& pair, bool& usedFloodFill, int&
     fprintf( stderr, "actual gain: %.3f\n", oldBits - m_encodedBits );
     
 
-    while( m_local == FloodFill && noisyFloodFill( insts, modelSize ) ) usedFloodFill =true;
+    while( m_local == FloodFill && floodFill( insts, modelSize ) ) usedFloodFill =true;
 //    if( floodFill( prime ) ) usedFloodFill = true;
 
 

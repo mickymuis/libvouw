@@ -28,13 +28,16 @@ add_library (vouw STATIC
     src/vouw/noisy_equivalence.cpp
     src/vouw/errormap.cpp )
 
-#add_executable (image-vouw 
-#    src/image-vouw/main.c)
+add_executable (ril 
+    src/ril/main.cpp
+    src/ril/ril.cpp
+    src/ril/matrixwriter.cpp
+    src/ril/statistics.cpp )
 
 target_link_libraries (vouw "-lm")
-#target_link_libraries (image-vouw vouw)
+target_link_libraries (ril vouw)
 target_include_directories (vouw PRIVATE "include")
-#target_include_directories (image-vouw PRIVATE "include")
+target_include_directories (ril PRIVATE "include")
 
 ##
 ## Build configuration for the QVouw tool

@@ -33,7 +33,7 @@ MainWindow::MainWindow() : QMainWindow(), currentItem( 0 )
 
     /* Prepare main window actions */
     QAction* actImportImage = new QAction(tr("&Import Image"), this);
-    //newAct->setShortcuts(QKeySequence::New);
+    actImportImage->setShortcut(tr("CTRL+I"));
     actImportImage->setStatusTip(tr("Import image-type file and convert it to a matrix"));
     connect(actImportImage, &QAction::triggered, this, &MainWindow::importImagePrompt);
 
@@ -81,9 +81,11 @@ MainWindow::MainWindow() : QMainWindow(), currentItem( 0 )
     connect( actResetView, &QAction::triggered, [=]( void ){ vouwWidget->zoomFill(); vouwWidget->setPan(0,0); } );
     
     QAction* actEncode = new QAction(tr("Encode"), this );
+    actEncode->setShortcut( tr("F5") );
     connect( actEncode, &QAction::triggered, this, &MainWindow::encodeCurrent );
     
     QAction* actReencode = new QAction(tr("Re-encode"), this );
+    actReencode->setShortcut( tr("F6") );
     connect( actReencode, &QAction::triggered, this, &MainWindow::reencodeCurrent );
     
     /* Actiongroup to select heuristic */
@@ -182,7 +184,7 @@ MainWindow::importImagePrompt() {
     opts.filename = QFileDialog::getOpenFileName(this,
                                 tr("Import image..."),
                                 "",
-                                tr("Images (*.jpg *.jpeg *.png *.bmp *.tiff)"),
+                                tr("Images (*.jpg *.jpeg *.png *.bmp *.tiff *.pgm *.pbm *.pnm)"),
                                 &selectedFilter);
     if (opts.filename.isEmpty())
         return;
@@ -279,7 +281,7 @@ MainWindow::encode( QVouw::Handle* h ) {
         v->encode();
 
     std::cout << "Compression ratio: " << std::setprecision(4) << v->ratio() * 100.0 << "%" << std::endl;
-    std::cout << "Model: " << v->codeTable()->countIfActive() << " patterns, Instance Set: " << v->instanceSet()->size() << " regions." << std::endl;
+    std::cout << "Model: " << v->codeTable()->countIfActiveNonSingleton() << " patterns (excluding singletons), Instance Set: " << v->instanceSet()->size() << " regions." << std::endl;
 }
 
 void 

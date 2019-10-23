@@ -2,7 +2,7 @@
  * VOUW - Spatial, compression-based pattern mining on matrices
  *
  * Micky Faas <micky@edukitty.org>
- * (C) 2018, Leiden Institute for Advanced Computer Science
+ * (C) 2017-2019, Leiden Institute for Advanced Computer Science
  */
 
 #pragma once

@@ -41,8 +41,8 @@ int main(int argc, char *argv[])
         QVouw::FileOpts opts;
         opts.filename = QString( argv[i] );
         opts.filetype = QVouw::IMAGE_IMPORT;
-        opts.levels = 8;
-        opts.use_tabu = true;
+        opts.levels = 256;
+        opts.use_tabu = false;
         window.import( opts );
     }
     return app.exec();

@@ -167,5 +167,6 @@ class Pattern {
 };
 
 inline bool pattern_is_active( const Pattern* p ) { return p->isActive(); }
+inline bool pattern_is_active_gte( const Pattern* p, int minSize ) { return p->isActive() && p->size() >= minSize; }
 
 VOUW_NAMESPACE_END

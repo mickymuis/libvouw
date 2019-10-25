@@ -327,7 +327,7 @@ Encoder::encode() {
     TimeVarT t = timeNow();
 
     while( encodeStep() ) steps++;
-    m_mat->unflagAll();
+    //m_mat->unflagAll();
 
     TimeVarT t2 = timeNow();
 
@@ -356,8 +356,8 @@ Encoder::reencode() {
                 Coord2D c =m_mat->makeCoord( i, j );
 
                 /* Test if p fits the matrix at pivot c */
-                if( p->apply( m_mat, c, false ) ) {
-                    p->apply( m_mat, c, true );
+                if( p->test( m_mat, c, true, false, true ) ) {
+                    p->apply( m_mat, c, true, true, false );
 
                     p->usage()++;
                     p->setActive( true );

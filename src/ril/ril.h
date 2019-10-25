@@ -63,6 +63,7 @@ class Ril {
         bool generate();
         Vouw::Matrix2D *matrix() { return mat; }
         int totalPatterns() const { return pCount; }
+        int totalElements() const { return flagCount; }
         double effectiveSNR() const { return snr; }
 
     private:

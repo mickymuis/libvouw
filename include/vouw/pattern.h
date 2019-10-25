@@ -128,7 +128,8 @@ class Pattern {
 
         /* Functions that apply or test a pattern against a matrix */
 
-        bool apply( Matrix2D* mat, const Coord2D& pivot, bool flag =false );
+        bool test( Matrix2D* mat, const Coord2D& pivot, bool isEqual =true, bool isFlagged =false, bool isUnflagged =true );
+        void apply( Matrix2D* mat, const Coord2D& pivot, bool setValue =true, bool flag =false, bool unflag =false );
 
         /* Functions that interact with the pattern's periphery */
         const PeripheryT& periphery( PeripheryPosition p = AnteriorPeriphery ) const;

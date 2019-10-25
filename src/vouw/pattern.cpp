@@ -259,23 +259,34 @@ Pattern::isCanonical() const {
 }
 
 bool 
-Pattern::apply( Matrix2D* mat, const Coord2D& pivot, bool flag ) {
+Pattern::test( Matrix2D* mat, const Coord2D& pivot, bool isEqual, bool isFlagged, bool isUnflagged ) {
 
     for( auto&& elem : elements() ) {
         Coord2D c =elem.offset.abs( pivot );
 
-        if( flag ) { 
-            mat->setFlagged( c, true ); 
-            continue; 
-        }
+        if( isUnflagged && mat->isFlagged( c ) ) return false;
+        if( isFlagged && !mat->isFlagged( c ) ) return false;
 
-        if( mat->isFlagged( c ) ) return false;
-
-        if( mat->value( c ) != elem.value )
+        if( isEqual && mat->value( c ) != elem.value )
             return false;
     }
 
     return true;
+}
+
+void 
+Pattern::apply( Matrix2D* mat, const Coord2D& pivot, bool setValue, bool flag, bool unflag ) {
+
+    for( auto&& elem : elements() ) {
+        Coord2D c =elem.offset.abs( pivot );
+
+        if( flag )
+            mat->setFlagged( c, true ); 
+        else if( unflag ) 
+            mat->setFlagged( c, false ); 
+        if( setValue )
+            mat->setValue( c, elem.value );
+    }
 }
 
 

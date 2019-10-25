@@ -58,6 +58,8 @@ class Encoder {
         Matrix2D* matrix() const { return m_mat; }
         CodeTable* codeTable() const { return m_ct; }
         const InstanceVector* instanceSet() const { return &m_instvec; }
+        const InstanceVector& instanceVector() const { return m_instvec; }
+        const InstanceMatrix& instanceMatrix() const { return m_instmat; }
         const ErrorMapT& errorMap() const { return m_errormap; }
 
         double uncompressedSize() const { return m_priorBits; }

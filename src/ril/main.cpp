@@ -18,8 +18,6 @@
 #include <cmath>
 #include <iostream>
 #include <chrono>
-#include <functional>
-#include <algorithm>
 
 typedef std::chrono::high_resolution_clock::time_point TimeVarT;
 
@@ -213,22 +211,6 @@ setFilenameNumber( RilOpts& ropts, std::string filename, int n, int total ) {
     ropts.outFilename =ss.str();
 }
 
-/** Test whether a pattern fits the requirements of a pattern that we expect to find given the input data */
-bool
-patternIsExpected( const Vouw::Pattern* p, const Opts& opts, const RilOpts& ropts ) {
-
-    if( !p->isActive() ) return false;
-    if( p->size() == 1 ) return false; // Singleton
-    if( p->size() < ((double)ropts.parms.minSize - (double)ropts.parms.minSize * opts.maxErr)
-    ||  p->size() > ((double)ropts.parms.maxSize + (double)ropts.parms.maxSize * opts.maxErr) )
-        return false;
-    
-    if( p->usage() < ((double)ropts.parms.minUsage - (double)ropts.parms.minUsage * opts.maxErr)
-    ||  p->usage() > ((double)ropts.parms.maxUsage + (double)ropts.parms.maxUsage * opts.maxErr) )
-        return false;
-
-    return true;
-}
 
 bool
 encode( Vouw::Matrix2D* mat, Statistics::Sample& s, const Opts& opts, const RilOpts& ropts, const VouwOpts& vopts ) {
@@ -243,14 +225,9 @@ encode( Vouw::Matrix2D* mat, Statistics::Sample& s, const Opts& opts, const RilO
     TimeVarT stop  =TIMENOW();
 
     s.total_time =DURATION(stop-start);
-    s.compression =e.ratio();
 
-    // Let's count the patterns
-    auto f =std::bind( patternIsExpected, std::placeholders::_1, opts, ropts );
-
-    s.patterns_out =std::count_if( e.codeTable()->begin(), e.codeTable()->end(), f );
-    s.patterns_out_total =e.codeTable()->countIfActiveNonSingleton();
-
+    Statistics::processResult( s, e, mat, ropts, opts.maxErr );
+    
     return true;
 }
 

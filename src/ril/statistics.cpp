@@ -81,10 +81,51 @@ Statistics::push( const Sample& s ) {
     samples.push_back( s );
 }
 
+Statistics::Sample 
+Statistics::average() const {
+
+    Sample avg ={0};
+    // Programmers are lazy, so we reinterpret 
+    // each sample as two arrays (int and doubles) and sum them in a for-loop
+    uint64_t *A =&avg.patterns_in;
+    double   *B =&avg.compression;
+
+    for( auto& s : samples ) {
+        const uint64_t *a =&s.patterns_in; // first elements
+        const double   *b =&s.compression;
+        for( int i =0; i < 4; i++ ) {
+            A[i] += a[i];
+            B[i] += b[i];
+        }
+    }
+    // Divide to obtain the averages
+    for( int i =0; i < 4; i++ ) {
+        A[i] /= samples.size();
+        B[i] /= (double)samples.size();
+    }
+    return avg;
+}
+
+void 
+Statistics::printSample( const Sample& s ) {
+        printf( "%d%c%d%c%d%c%.3f%c%f%c%.4f%c%.4f%c%d\n", 
+                s.patterns_in, sep, 
+                s.patterns_out, sep, 
+                s.patterns_out_total, sep, 
+                s.snr_in, sep, 
+                s.compression, sep, 
+                s.precision, sep, 
+                s.recall, sep, 
+                s.total_time );
+
+}
+
 void
 Statistics::print() {
     printf( "pat in%cpat out%cpat tot%csnr%ccompression%cprec%crecall%ctime\n", sep,sep,sep,sep,sep,sep,sep );
     for( auto& s : samples ) {
-        printf( "%d%c%d%c%d%c%.3f%c%f%c%.4f%c%.4f%c%d\n", s.patterns_in, sep, s.patterns_out, sep, s.patterns_out_total, sep, s.snr_in, sep, s.compression, sep, s.precision, sep, s.recall, sep, s.total_time );
+        printSample( s );
     }
+    printf( "\n" );
+    printSample( average() );
 }

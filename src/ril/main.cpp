@@ -30,13 +30,13 @@ typedef std::chrono::high_resolution_clock::time_point TimeVarT;
 #define DIM_MAX 65535
 struct Opts {
     int repeats;
-    std::string outFilename;
-    bool encode;
+    std::string outFilename, diffFilename;
+    bool encode, diff;
     char separator;
     double maxErr;
 };
 
-static struct Opts OPTS_DEFAULTS = {1,"",false,'\t',.25};
+static struct Opts OPTS_DEFAULTS = {1,"","",false,false,'\t',.25};
 
 struct VouwOpts {
     Vouw::Encoder::LocalSearch ls;
@@ -54,11 +54,12 @@ printHelp( const char* exec ) {
 Usage: %s [options]\n\
 General options:\n\
 \t-n\tNumber of generated matrices in total (1 by default).\n\
-\t-f\tUse specified type for storing the output matrices (default 'pgm').\n\
+\t-f\tUse specified filetype for storing the output matrices (default 'pgm').\n\
 \t-o\tStore the generated matrices with the specified filename (not stored if not specified).\n\
 \t-e\tEncode the generated matrix/matrices using VOUW and print statistics.\n\
 \t-s\tSet separator character for printing statistics (defaults to tab).\n\
 \t-b\tMaximum error factor in size/usage when counting patterns (statistics only).\n\
+\t-d\tAlso write the difference between the generated matrix and the VOUW encoded result (needs -e and -o).\n\
 \t-h\tPrint this information.\n\
 Options to RIL (specify using -r)\n\
 \tw=\tWidth (number of columns) of the generated matrix.\n\
@@ -191,11 +192,10 @@ parseVOUWArg( VouwOpts& vopts, const char *arg ) {
     return true;
 }
 
-void
-setFilenameNumber( RilOpts& ropts, std::string filename, int n, int total ) {
-    if( total == 1 || filename.empty() ) {
-        ropts.outFilename =filename;
-        return;
+std::string
+setFilenameNumber( const std::string filename, int n, int total, std::string postfix =std::string() ) {
+    if( filename.empty() ) {
+        return filename;
     }
 
     int width =log10( total ) + 1;
@@ -203,12 +203,18 @@ setFilenameNumber( RilOpts& ropts, std::string filename, int n, int total ) {
 
     std::stringstream ss;
     if( dot != std::string::npos ) {
-        ss << filename.substr(0,dot) << std::setw(width) << std::setfill('0') << '_' << n << filename.substr(dot);
+        if( total == 1 )
+            ss << filename.substr(0,dot) << '_' << postfix << filename.substr(dot);
+        else
+            ss << filename.substr(0,dot) << '_' << postfix << '_' << std::setw(width) << std::setfill('0') << n << filename.substr(dot);
     } else {
-        ss << filename << std::setw(width) << '_' << std::setfill('0') << n;
+        if( total == 1 )
+            ss << filename << '_' << postfix;
+        else
+            ss << filename << '_' << postfix << '_' << std::setw(width)  << std::setfill('0') << n;
     }
 
-    ropts.outFilename =ss.str();
+    return ss.str();
 }
 
 
@@ -226,7 +232,20 @@ encode( Vouw::Matrix2D* mat, Statistics::Sample& s, const Opts& opts, const RilO
 
     s.total_time =DURATION(stop-start);
 
-    Statistics::processResult( s, e, mat, ropts, opts.maxErr );
+    Vouw::Matrix2D *diff =nullptr;
+
+    if( opts.diff )
+        diff =new Vouw::Matrix2D( mat->width(), mat->height(), mat->base() );
+
+    Statistics::processResult( s, e, mat, ropts, opts.maxErr, diff );
+
+    if( opts.diff ) {
+        if( ropts.writer ) {
+            if( !ropts.writer->writeMatrix( *diff, opts.diffFilename ) )
+                fprintf( stderr, "Error: could not write to given path `%s'\n", opts.diffFilename.c_str());
+        }
+        delete diff;
+    }
     
     return true;
 }
@@ -245,7 +264,7 @@ main( int argc, char **argv ) {
     Opts opts      = OPTS_DEFAULTS;
 
     int opt;
-    while( (opt = getopt( argc, argv, "ev:r:n:f:o:s:b:h" )) != -1 ) {
+    while( (opt = getopt( argc, argv, "dev:r:n:f:o:s:b:h" )) != -1 ) {
         switch( opt ) {
             case 'e':
                 opts.encode =true;
@@ -276,6 +295,9 @@ main( int argc, char **argv ) {
                 break;
             case 'b':
                 opts.maxErr = atof( optarg );
+                break;
+            case 'd':
+                opts.diff =true;
                 break;
             case 'h':
             default:
@@ -308,6 +330,10 @@ main( int argc, char **argv ) {
         fprintf( stderr, "%s: Invalid desired branching factor specified.\n", argv[0] );
         return -1;
     }
+    if( opts.diff && ( opts.outFilename.empty() || !opts.encode ) ) {
+        fprintf( stderr, "%s: Write difference (-d) required encode (-e) and output path (-o).\n", argv[0] );
+        return -1;
+    }
 
     registerBuiltinWriters();
 
@@ -325,12 +351,16 @@ main( int argc, char **argv ) {
     //int err =r.run() == true ? 0 : -1;
 
     for( int i =0; i < opts.repeats; i++ ) {
-        setFilenameNumber( ropts, opts.outFilename, i+1, opts.repeats );
+        ropts.outFilename =setFilenameNumber( opts.outFilename, i+1, opts.repeats );
+        if( opts.diff )
+            opts.diffFilename =setFilenameNumber( opts.outFilename, i+1, opts.repeats, "diff" );
         Statistics::Sample s = {0};
         Ril ril ( ropts );
         if( !ril.generate() ) {
             err =-1; break;
         }
+        fprintf( stderr, "snr = %f\n", ril.effectiveSNR() );
+
         ropts =ril.opts();
         s.patterns_in   =ril.totalPatterns();
         s.snr_in        =ril.effectiveSNR();

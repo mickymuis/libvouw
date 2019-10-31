@@ -34,7 +34,7 @@ patternIsExpected( const Vouw::Pattern* p, double maxErr, const RilOpts& ropts )
 Statistics::Statistics() : sep( '\t' ) { }
 
 void 
-Statistics::processResult( Sample& s, const Vouw::Encoder& e, const Vouw::Matrix2D *mat, const RilOpts& ropts, double maxErr ) {
+Statistics::processResult( Sample& s, const Vouw::Encoder& e, const Vouw::Matrix2D *mat, const RilOpts& ropts, double maxErr, Vouw::Matrix2D *diff ) {
     s.compression =e.ratio();
 
     // Let's count the patterns
@@ -65,6 +65,10 @@ Statistics::processResult( Sample& s, const Vouw::Encoder& e, const Vouw::Matrix
                     tp++;
             }
             if( inputIsSignal ) n++;
+
+            if( diff ) {
+                diff->setValue( c, inputIsSignal == outputIsSignal ? 0 : 1 );
+            }
         }
 
     // Precision is true positives divided by total positives 

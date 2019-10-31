@@ -69,11 +69,12 @@ Ril::generate() {
     mat->clear();
 
 
-    while( 1 ) {
+    int tries =100000;
+    while( tries ) {
         snr = (double)flagCount / (double)mat->count();
         //printf( "snr = %f\n", snr );
         if( snr >= ropts.parms.targetSNR ) break;
-        if( !generatePattern2() ) break;
+        if( !generatePattern2() ) --tries;
     }
     
     if( ropts.parms.noise ) {
@@ -85,7 +86,8 @@ Ril::generate() {
         }
     }
     
-    ropts.writer->writeMatrix( *mat, ropts.outFilename );
+    if( !ropts.outFilename.empty() )
+        ropts.writer->writeMatrix( *mat, ropts.outFilename );
 
     return true;
 }
@@ -374,7 +376,7 @@ Ril::randEmptyCoord( Vouw::Coord2D& coord ) {
     std::uniform_int_distribution<int> rdist(0,ropts.rows-1);
     std::uniform_int_distribution<int> cdist(0,ropts.cols-1);
 
-    for( int i =0; i < 1000; i++ ) { // TODO: fix this wtf
+    for( int i =0; i < 1000000; i++ ) { // TODO: fix this wtf
         Vouw::Coord2D c( rdist(rgen), cdist(rgen), ropts.cols );
         if( mat->isFlagged( c ) == false ) {
             coord =c;

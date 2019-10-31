@@ -25,7 +25,7 @@ class Statistics {
 
         Statistics();
 
-        static void processResult( Sample& s, const Vouw::Encoder& e, const Vouw::Matrix2D *mat, const RilOpts& ropts, double maxErr );
+        static void processResult( Sample& s, const Vouw::Encoder& e, const Vouw::Matrix2D *mat, const RilOpts& ropts, double maxErr, Vouw::Matrix2D *diff =nullptr );
 
 
         void setSeparatorChar( char c ) { sep =c; }

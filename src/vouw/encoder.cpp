@@ -97,7 +97,7 @@ void Encoder::setFromMatrix( Matrix2D* mat, bool useTabu ) {
         //m_smap[elem].first->setActive( false );
         //m_smap[elem].first->setTabu( true );
         //m_massfunc.setCount( elem, 0 );
-        printf( "Singleton with value %d is set as tabu.\n", tabuElem );
+        fprintf( stderr, "Singleton with value %d is set as tabu.\n", tabuElem );
     }
 
     for( int i =0; i < m_mat->height(); i++ ) {
@@ -147,7 +147,7 @@ void Encoder::setFromMatrix( Matrix2D* mat, bool useTabu ) {
 
         }
     }
-    std::cout << "Added " << m_ct->countIfActive() << " patterns in " << totalCount() << " instances." << std::endl;
+    std::cerr << "Added " << m_ct->countIfActive() << " patterns in " << totalCount() << " instances." << std::endl;
 
 
     m_priorBits =updateCodeLengths();
@@ -260,7 +260,7 @@ bool Encoder::encodeStep() {
     
     /* This part is for statistics only
      * It outputs the number of patterns vs the number of configurations */
-    int patterns =0, configs =0;
+    /*int patterns =0, configs =0;
     std::set<ConfigIDT> cfgset;
     for( auto && p : *m_ct ) {
         if( p->isActive() == false || p->size() == 1 || p->isTabu() ) continue;
@@ -270,12 +270,12 @@ bool Encoder::encodeStep() {
         }
         patterns++;
     }
-    printf( "%d, %d\n", patterns, configs );
+    printf( "%d, %d\n", patterns, configs );*/
     /* End statistical part */
 
 
     if( totalGain <= 0.0 && m_iteration != 1 ) {
-        std::cout << "No compression gain." << std::endl;
+        std::cerr << "No compression gain." << std::endl;
 
         // Try additional decomposion before giving up
        /* bool prune =false;
@@ -295,7 +295,7 @@ bool Encoder::encodeStep() {
                 printf( "Pattern #%5d\t usage %d, %dx%d, codeword length %f\n",
                     p->label(), p->usage(), p->bounds().width, p->bounds().height, p->codeLength() );
         }*/
-        printf( "Total number of succesfull decompositions: %d\n", m_decompositions );
+        fprintf( stderr, "Total number of succesfull decompositions: %d\n", m_decompositions );
 
         return false;
     }
@@ -331,7 +331,7 @@ Encoder::encode() {
 
     TimeVarT t2 = timeNow();
 
-    std::cout << "Total elapsed time: " << duration( t2-t ) << " ms." << std::endl << std::flush;
+    std::cerr << "Total elapsed time: " << duration( t2-t ) << " ms." << std::endl << std::flush;
 
     return steps;
 }

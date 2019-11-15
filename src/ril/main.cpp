@@ -204,14 +204,14 @@ setFilenameNumber( const std::string filename, int n, int total, std::string pos
     std::stringstream ss;
     if( dot != std::string::npos ) {
         if( total == 1 )
-            ss << filename.substr(0,dot) << '_' << postfix << filename.substr(dot);
+            ss << filename.substr(0,dot) << postfix << filename.substr(dot);
         else
-            ss << filename.substr(0,dot) << '_' << postfix << '_' << std::setw(width) << std::setfill('0') << n << filename.substr(dot);
+            ss << filename.substr(0,dot) << postfix << '_' << std::setw(width) << std::setfill('0') << n << filename.substr(dot);
     } else {
         if( total == 1 )
-            ss << filename << '_' << postfix;
+            ss << filename << postfix;
         else
-            ss << filename << '_' << postfix << '_' << std::setw(width)  << std::setfill('0') << n;
+            ss << filename << postfix << '_' << std::setw(width)  << std::setfill('0') << n;
     }
 
     return ss.str();
@@ -353,7 +353,7 @@ main( int argc, char **argv ) {
     for( int i =0; i < opts.repeats; i++ ) {
         ropts.outFilename =setFilenameNumber( opts.outFilename, i+1, opts.repeats );
         if( opts.diff )
-            opts.diffFilename =setFilenameNumber( opts.outFilename, i+1, opts.repeats, "diff" );
+            opts.diffFilename =setFilenameNumber( opts.outFilename, i+1, opts.repeats, "_diff" );
         Statistics::Sample s = {0};
         Ril ril ( ropts );
         if( !ril.generate() ) {

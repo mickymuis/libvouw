@@ -55,7 +55,8 @@ Statistics::processResult( Sample& s, const Vouw::Encoder& e, const Vouw::Matrix
             bool inputIsSignal = mat->isFlagged( c );
 
             Vouw::InstanceVector::IndexT it =e.instanceMatrix()[c];
-            Vouw::Pattern *p =e.instanceVector()[it].pattern();
+            if( it == -1 ) continue; // In case of tabu patterns
+            Vouw::Pattern *p   =e.instanceVector()[it].pattern();
             
             bool outputIsSignal =(p->size() > 1);
 
